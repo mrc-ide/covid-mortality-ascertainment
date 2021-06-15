@@ -1,0 +1,55 @@
+devtools::load_all(".")
+library(tidyverse)
+
+# Example of how to run say one model fit for a made up country:
+owid <- read.csv("https://covid.ourworldindata.org/data/owid-covid-data.csv")
+
+# This is the death time series for Zambia
+data <- owid %>% filter(iso_code == "ZMB") %>%
+  select(date, new_deaths) %>%
+  na.omit() %>%
+  rename(deaths = new_deaths)
+
+# Let's use this to make a dummy data set for say a 10th of the country
+# this would in practice be the data that has been collected for your setting
+data$deaths <- vapply(data$deaths, function(x) {rbinom(1, size = x, prob = 1/10)}, numeric(1))
+data <- filter(data, date < as.Date("2020-11-01"))
+
+# we also need to know the population size
+# here we will just make a dummy pop for 1/10 of the pop
+pop <- as.integer(squire::get_population("Zambia")$n/10)
+
+# conduct epidemic fit for this country using squire assuming 100% reporting
+# N.B. would be good to run for at least 20K iterations. Ideally. 100K to ensure good fit.
+# Request 3 cores if running on a cluster to speed up life by having a core for each chain
+fit <- fit_spline_rt(data = data,
+                     country = "Zambia", # here you still need to say what country the data is from so the right contact matrix is loaded
+                     population = pop,
+                     reporting_fraction = 1,
+                     n_mcmc = 100,
+                     replicates = 100,
+                     rw_duration = 14)
+
+# to check the fit
+plot(fit, particle_fit = TRUE)
+
+# this is a squire object so we can get data as normal:
+deaths <- squire::format_output(fit, "deaths")
+
+
+# Notes:
+
+# This is a fit assuming that 100% deaths have been reported.
+# However, we don't know if this is true so we need some other data
+# source to check against, e.g. seroprevalence and PCR prevalence
+
+# seems aligned
+sero_pcr_df <- seroprev_df(res)
+
+ggplot(sero_pcr_df, aes(date, pcr_perc)) + geom_line() + ylab("PCR Prevalence")
+ggplot(sero_pcr_df, aes(date, sero_perc)) + geom_line() + ylab("Seroprevalence")
+# SO perhaps it is best to instead pass in as the data being fit the excess mortality
+# data. Ony concerns are how to disaggregate weekly data. Couple of countries basically
+# reported covid deaths like that and I think the pmcmc coped okay
+# (https://mrc-ide.github.io/global-lmic-reports/KAZ/). But alternatively you could take
+# the rolling 7-day mean and fit to that (might be simpler)
