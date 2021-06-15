@@ -281,7 +281,10 @@ inf <- squire::format_output(res, c("S"), date_0 = max(res$pmcmc_results$inputs$
 
 # correctly format
 inf <- left_join(inf,
-                 squire::format_output(res, c("infections"), date_0 = max(res$pmcmc_results$inputs$data$date)) %>%
+                 squire::format_output(
+                   res, c("infections"),
+                                       date_0 = max(res$pmcmc_results$inputs$data$date)
+                   ) %>%
                    mutate(symptoms = as.integer(y)) %>%
                    select(replicate, t, date, symptoms),
                  by = c("replicate", "t", "date"))

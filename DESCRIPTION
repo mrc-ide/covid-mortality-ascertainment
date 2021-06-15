@@ -37,7 +37,9 @@ Imports:
     grid,
     ggforce,
     cowplot,
-    RhpcBLASctl
+    RhpcBLASctl,
+    dplyr, 
+    tidyr
 Remotes:
     mrc-ide/squire
     mrc-ide/odin

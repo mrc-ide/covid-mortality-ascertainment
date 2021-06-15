@@ -43,13 +43,10 @@ deaths <- squire::format_output(fit, "deaths")
 # However, we don't know if this is true so we need some other data
 # source to check against, e.g. seroprevalence and PCR prevalence
 
-# seems aligned
-sero_pcr_df <- seroprev_df(res)
 
-ggplot(sero_pcr_df, aes(date, pcr_perc)) + geom_line() + ylab("PCR Prevalence")
-ggplot(sero_pcr_df, aes(date, sero_perc)) + geom_line() + ylab("Seroprevalence")
-# SO perhaps it is best to instead pass in as the data being fit the excess mortality
-# data. Ony concerns are how to disaggregate weekly data. Couple of countries basically
-# reported covid deaths like that and I think the pmcmc coped okay
-# (https://mrc-ide.github.io/global-lmic-reports/KAZ/). But alternatively you could take
-# the rolling 7-day mean and fit to that (might be simpler)
+sero_pcr_df <- seroprev_df(res)
+ggplot(sero_pcr_df, aes(date, pcr_perc)) + geom_line() + ylab("PCR Prevalence") + scale_y_continuous(labels = scales::percent)
+ggplot(sero_pcr_df, aes(date, sero_perc)) + geom_line() + ylab("Seroprevalence") + scale_y_continuous(labels = scales::percent)
+
+# So we could use these to compare against the observed sero/pcr data to see
+# which reporting fraction most closely captures pcr and sero data.
