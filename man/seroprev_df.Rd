@@ -7,7 +7,7 @@
 seroprev_df(res)
 }
 \arguments{
-\item{res}{Output of \code{\link{squire::pmcmc}}}
+\item{res}{Output of [[squire::pmcmc]]}
 }
 \description{
 Extract PCR prevalence and seroprevalence from squire model fit

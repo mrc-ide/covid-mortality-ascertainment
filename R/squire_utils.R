@@ -3,6 +3,8 @@
 #'
 #' @inheritParams squire::pmcmc
 #' @inheritParams squire::parameters_explicit_SEEIR
+#' @param hosp_beds General Hospital Beds
+#' @param icu_beds ICU Beds
 #' @param rw_duration Random Walk/Spline Duration. Default = 14 days
 #'
 #' @return Model fit from [squire:::pmcmc]
@@ -237,11 +239,11 @@ fit_spline_rt <- function(data,
 
 #' Extract PCR prevalence and seroprevalence from squire model fit
 #'
-#' @param res Output of \code{\link{squire::pmcmc}}
+#' @param res Output of [[squire::pmcmc]]
 seroprev_df <- function(res) {
 
 # seroconversion data from brazeay report 34
-prob_conversion <-  cumsum(dgamma(0:300,shape = 5, rate = 1/2))/max(cumsum(dgamma(0:300,shape = 5, rate = 1/2)))*0.95
+prob_conversion <-  cumsum(dgamma(0:300,shape = 5, rate = 1/2))/max(cumsum(dgamma(0:300,shape = 5, rate = 1/2)))*0.95 # assumed maximum test specificity/conversion rate of 0.95
 sero_det <- cumsum(dweibull(0:300, 3.669807, scale = 143.7046))
 sero_det <- cumsum(prob_conversion-sero_det)
 sero_det[sero_det < 0] <- 0
@@ -274,10 +276,10 @@ roll_func <- function(x, det) {
 # get symptom onset data
 date_0 <- max(res$pmcmc_results$inputs$data$date)
 inf <- squire::format_output(res, c("S"), date_0 = max(res$pmcmc_results$inputs$data$date)) %>%
-  mutate(S = as.integer(y)) %>%
+  mutate(S = as.integer(.data$y)) %>%
   group_by(replicate) %>%
-  mutate(infections = lag(S, 1)-S) %>%
-  select(replicate, t, date, S, infections)
+  mutate(infections = lag(.data$S, 1)-.data$S) %>%
+  select(replicate, t, date, .data$S, .data$infections)
 
 # correctly format
 inf <- left_join(inf,
@@ -285,17 +287,17 @@ inf <- left_join(inf,
                    res, c("infections"),
                                        date_0 = max(res$pmcmc_results$inputs$data$date)
                    ) %>%
-                   mutate(symptoms = as.integer(y)) %>%
-                   select(replicate, t, date, symptoms),
+                   mutate(symptoms = as.integer(.data$y)) %>%
+                   select(replicate, t, .data$date, .data$symptoms),
                  by = c("replicate", "t", "date"))
 
 inf <- inf %>%
   group_by(replicate) %>%
-  mutate(pcr_positive = roll_func(infections, pcr_det),
-         sero_positive = roll_func(symptoms, sero_det),
-         ps_ratio = pcr_positive/sero_positive,
-         sero_perc = sero_positive/max(S,na.rm = TRUE),
-         pcr_perc = pcr_positive/max(S,na.rm = TRUE)) %>%
+  mutate(pcr_positive = roll_func(.data$infections, pcr_det),
+         sero_positive = roll_func(.data$symptoms, sero_det),
+         ps_ratio = .data$pcr_positive/.data$sero_positive,
+         sero_perc = .data$sero_positive/max(.data$S,na.rm = TRUE),
+         pcr_perc = .data$pcr_positive/max(.data$S,na.rm = TRUE)) %>%
   ungroup
 
 inf$reporting_fraction <- res$pmcmc_results$inputs$pars_obs$phi_death

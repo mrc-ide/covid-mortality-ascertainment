@@ -42,8 +42,6 @@ deaths <- squire::format_output(fit, "deaths")
 # This is a fit assuming that 100% deaths have been reported.
 # However, we don't know if this is true so we need some other data
 # source to check against, e.g. seroprevalence and PCR prevalence
-
-
 sero_pcr_df <- seroprev_df(res)
 ggplot(sero_pcr_df, aes(date, pcr_perc)) + geom_line() + ylab("PCR Prevalence") + scale_y_continuous(labels = scales::percent)
 ggplot(sero_pcr_df, aes(date, sero_perc)) + geom_line() + ylab("Seroprevalence") + scale_y_continuous(labels = scales::percent)

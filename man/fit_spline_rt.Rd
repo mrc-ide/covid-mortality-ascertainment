@@ -38,6 +38,10 @@ the model calibrating to twice the deaths provided by \code{data$deaths}}
 to select parameter set. For each parmater set sampled, run particle filter with \code{n_particles} and sample 1 trajectory}
 
 \item{rw_duration}{Random Walk/Spline Duration. Default = 14 days}
+
+\item{hosp_beds}{General Hospital Beds}
+
+\item{icu_beds}{ICU Beds}
 }
 \value{
 Model fit from [squire:::pmcmc]

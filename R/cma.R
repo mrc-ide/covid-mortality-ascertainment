@@ -11,6 +11,6 @@
 #' @importFrom stats median na.omit quantile dgamma dnorm dunif dweibull lag
 #' @importFrom rlang .data
 #' @importFrom utils head tail
-#' @importFrom dplyr group_by summarise ungroup left_join
+#' @importFrom dplyr group_by summarise ungroup left_join mutate select
 #'
 "_PACKAGE"
