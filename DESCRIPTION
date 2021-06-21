@@ -25,6 +25,6 @@ Imports:
     tidyr,
     zoo
 Remotes:
-    mrc-ide/squire
+    mrc-ide/squire,
     mrc-ide/odin
 RoxygenNote: 7.1.1
