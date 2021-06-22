@@ -60,7 +60,7 @@ fit_spline_rt <- function(data,
   # pmcmc args
   n_particles <- 2 # we use the deterministic model now so this does nothing (makes your life quicker and easier too)
   n_chains <- 3 # number of chains
-  start_adaptation <- 1000 # how long before adapting
+  start_adaptation <- as.integer(0.1*n_mcmc) # how long before adapting
 
   # parallel call
   suppressWarnings(future::plan(future::multiprocess()))
