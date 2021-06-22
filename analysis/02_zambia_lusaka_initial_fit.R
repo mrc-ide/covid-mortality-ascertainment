@@ -9,7 +9,7 @@ df <- as.data.frame(gsheet2tbl('https://docs.google.com/spreadsheets/d/1qKPsUZiv
 
 # Filter deaths for Lusaka Province until November 2020
 data <- df %>%
-  filter(Province=="Lusaka" & Date < "2020-07-22") %>%
+  filter(Province=="Lusaka" & Date < "2020-07-01") %>%
   select(Date, Total_Deaths) %>%
   na.omit() %>%
   group_by(Date) %>% summarise(Total_Deaths = sum(Total_Deaths)) %>%
