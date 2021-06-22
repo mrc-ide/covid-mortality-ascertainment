@@ -9,11 +9,13 @@ df <- as.data.frame(gsheet2tbl('https://docs.google.com/spreadsheets/d/1qKPsUZiv
 
 # Filter deaths for Lusaka Province until November 2020
 data <- df %>%
-  filter(Province=="Lusaka" & Date < "2020-11-01") %>%
+  filter(Province=="Lusaka" & Date < "2020-07-22") %>%
   select(Date, Total_Deaths) %>%
   na.omit() %>%
   group_by(Date) %>% summarise(Total_Deaths = sum(Total_Deaths)) %>%
   rename(deaths = Total_Deaths, date = Date)
+
+sum(data$deaths)
 
 ## Population size for Lusaka Province
 # 2010: 2191225, 2222812 or 2238569 (https://en.wikipedia.org/wiki/Lusaka_Province)
@@ -65,7 +67,17 @@ fit <- fit_spline_rt(data = data,
                      country = "Zambia", # here you still need to say what country the data is from so the right contact matrix is loaded
                      population = pop_st_lu,
                      reporting_fraction = 1,
-                     n_mcmc = 100,
+                     n_mcmc = 1000,
+                     replicates = 100,
+                     rw_duration = 14,
+                     hosp_beds = 1e10,
+                     icu_beds = 1e10)
+
+fit2 <- fit_spline_rt(data = data,
+                     country = "Zambia", # here you still need to say what country the data is from so the right contact matrix is loaded
+                     population = pop_st_lu,
+                     reporting_fraction = 0.1,
+                     n_mcmc = 1000,
                      replicates = 100,
                      rw_duration = 14,
                      hosp_beds = 1e10,
@@ -77,6 +89,7 @@ fit$replicate_parameters
 
 plot(fit, date_0 = max(data$date), x_var = "date")
 plot(fit, particle_fit = TRUE)
+plot(fit2, particle_fit = TRUE)
 
 # Variation in replicates doesn't look like it's working yet.
 
