@@ -240,14 +240,14 @@ fit_spline_rt <- function(data,
 #' Extract PCR prevalence and seroprevalence from squire model fit
 #'
 #' @param res Output of [[squire::pmcmc]]
-seroprev_df <- function(res) {
+seroprev_df <- function(res, sero_sens = 0.9, pcr_sens = 0.95) {
 
 # seroconversion data from brazeay report 34
-prob_conversion <-  cumsum(dgamma(0:300,shape = 5, rate = 1/2))/max(cumsum(dgamma(0:300,shape = 5, rate = 1/2)))*0.95 # assumed maximum test specificity/conversion rate of 0.95
+prob_conversion <-  cumsum(dgamma(0:300,shape = 5, rate = 1/2))/max(cumsum(dgamma(0:300,shape = 5, rate = 1/2)))
 sero_det <- cumsum(dweibull(0:300, 3.669807, scale = 143.7046))
-sero_det <- cumsum(prob_conversion-sero_det)
+sero_det <- prob_conversion-sero_det
 sero_det[sero_det < 0] <- 0
-sero_det <- sero_det/max(sero_det)
+sero_det <- sero_det/max(sero_det)*sero_sens  # assumed maximum test sensitivitys
 
 # from Kay et al 2021 Science (actually from preprint)
 pcr_det <- c(9.206156e-13, 9.206156e-13, 3.678794e-01, 9.645600e-01,
@@ -259,18 +259,17 @@ pcr_det <- c(9.206156e-13, 9.206156e-13, 3.678794e-01, 9.645600e-01,
              2.862752e-01, 2.552337e-01, 2.275302e-01, 2.028085e-01,
              1.807502e-01, 1.610705e-01, 1.435151e-01, 1.278563e-01,
              1.138910e-01, 1.014375e-01, 9.033344e-02)
+pcr_det <- (pcr_det/max(pcr_det))*pcr_sens
 
 # additional_functions for rolling
 roll_func <- function(x, det) {
   l <- length(det)
-  c(NA,
-    zoo::rollapply(x,
-                   list(seq(-l, -1)),
-                   function(i) {
-                     sum(i*tail(det, length(i)), na.rm = TRUE)
-                   },
-                   partial = 1
-    ))
+  ret <- rep(0, length(x))
+  for(i in seq_along(ret)) {
+    to_sum <- tail(x[seq_len(i)], length(det))
+    ret[i] <- sum(rev(to_sum)*head(det, length(to_sum)))
+  }
+  return(ret)
 }
 
 # get symptom onset data
@@ -278,15 +277,15 @@ date_0 <- max(res$pmcmc_results$inputs$data$date)
 inf <- squire::format_output(res, c("S"), date_0 = max(res$pmcmc_results$inputs$data$date)) %>%
   mutate(S = as.integer(.data$y)) %>%
   group_by(replicate) %>%
-  mutate(infections = lag(.data$S, 1)-.data$S) %>%
+  mutate(infections = c(0, diff(max(.data$S)-.data$S))) %>%
   select(replicate, t, date, .data$S, .data$infections)
 
 # correctly format
 inf <- left_join(inf,
                  squire::format_output(
                    res, c("infections"),
-                                       date_0 = max(res$pmcmc_results$inputs$data$date)
-                   ) %>%
+                   date_0 = max(res$pmcmc_results$inputs$data$date)
+                 ) %>%
                    mutate(symptoms = as.integer(.data$y)) %>%
                    select(replicate, t, .data$date, .data$symptoms),
                  by = c("replicate", "t", "date"))
