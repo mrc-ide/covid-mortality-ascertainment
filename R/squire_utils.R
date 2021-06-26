@@ -275,6 +275,7 @@ roll_func <- function(x, det) {
 # get symptom onset data
 date_0 <- max(res$pmcmc_results$inputs$data$date)
 inf <- squire::format_output(res, c("S"), date_0 = max(res$pmcmc_results$inputs$data$date)) %>%
+  na.omit() %>%
   mutate(S = as.integer(.data$y)) %>%
   group_by(replicate) %>%
   mutate(infections = c(0, diff(max(.data$S)-.data$S))) %>%
@@ -292,6 +293,7 @@ inf <- left_join(inf,
 
 inf <- inf %>%
   group_by(replicate) %>%
+  na.omit() %>%
   mutate(pcr_positive = roll_func(.data$infections, pcr_det),
          sero_positive = roll_func(.data$symptoms, sero_det),
          ps_ratio = .data$pcr_positive/.data$sero_positive,
