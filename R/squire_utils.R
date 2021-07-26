@@ -6,6 +6,7 @@
 #' @param hosp_beds General Hospital Beds
 #' @param icu_beds ICU Beds
 #' @param rw_duration Random Walk/Spline Duration. Default = 14 days
+#' @param reporting_fraction_bounds Region to vary reporting fraction
 #'
 #' @return Model fit from [squire:::pmcmc]
 #' @export
@@ -14,11 +15,13 @@ fit_spline_rt <- function(data,
                           country,
                           population,
                           reporting_fraction,
+                          reporting_fraction_bounds=NULL,
                           n_mcmc = 10000,
                           replicates = 100,
                           rw_duration = 14,
                           hosp_beds = 10000000000,
-                          icu_beds = 10000000000) {
+                          icu_beds = 10000000000,
+                          ...) {
 
   ## -----------------------------------------------------------------------------
   ## Step 1 DATA CLEANING AND ORDERING
@@ -126,6 +129,14 @@ fit_spline_rt <- function(data,
   ## Step 2d: PMCMC parameter set up
   ## -----------------------------------------------------------------------------
 
+  # seroconversion data from brazeay report 34
+  sero_sens = 0.9
+  prob_conversion <-  cumsum(dgamma(0:300,shape = 5, rate = 1/2))/max(cumsum(dgamma(0:300,shape = 5, rate = 1/2)))
+  sero_det <- cumsum(dweibull(0:300, 3.669807, scale = 143.7046))
+  sero_det <- prob_conversion-sero_det
+  sero_det[sero_det < 0] <- 0
+  sero_det <- sero_det/max(sero_det)*sero_sens  # assumed maximum test sensitivitys
+
   # PMCMC Parameters
   pars_init = list('start_date' = date_start,
                    'R0' = R0_start,
@@ -147,7 +158,9 @@ fit_spline_rt <- function(data,
                   "Rt_shift_scale" = Rt_shift_scale_max)
   pars_discrete = list('start_date' = TRUE, 'R0' = FALSE, 'Meff' = FALSE,
                        'Meff_pl' = FALSE, "Rt_shift" = FALSE, "Rt_shift_scale" = FALSE)
-  pars_obs = list(phi_cases = 1, k_cases = 2, phi_death = 1, k_death = 2, exp_noise = 1e6)
+  pars_obs = list(phi_cases = 1, k_cases = 2, phi_death = 1, k_death = 2, exp_noise = 1e6,
+                  sero_df = data.frame(date_start = c("2020-07-04","2020-07-18"), date_end = c("2020-07-27","2020-08-10"), sero_pos = c(0.021*4258, 0.106*4258), samples = c(4258,4258)),
+                  sero_det = sero_det)
 
   # add in the spline list
   pars_init <- append(pars_init, pars_init_rw)
@@ -155,7 +168,15 @@ fit_spline_rt <- function(data,
   pars_max <- append(pars_max, pars_max_rw)
   pars_discrete <- append(pars_discrete, pars_discrete_rw)
 
-  # Covriance Matrix
+  # add reporting bounds if given
+  if(!is.null(reporting_fraction_bounds)){
+    pars_init <- append(pars_init, c("rf"=reporting_fraction_bounds[1]))
+    pars_min <- append(pars_min, c("rf"=reporting_fraction_bounds[2]))
+    pars_max <- append(pars_max, c("rf"=reporting_fraction_bounds[3]))
+    pars_discrete <- append(pars_discrete, c("rf"=FALSE))
+  }
+
+  # Covariance Matrix
   proposal_kernel <- diag(length(names(pars_init))) * 0.3
   rownames(proposal_kernel) <- colnames(proposal_kernel) <- names(pars_init)
   proposal_kernel["start_date", "start_date"] <- 1.5
@@ -201,6 +222,7 @@ fit_spline_rt <- function(data,
                        pars_min = pars_min,
                        pars_max = pars_max,
                        pars_discrete = pars_discrete,
+                       pars_obs = pars_obs,
                        proposal_kernel = proposal_kernel,
                        population = population,
                        baseline_contact_matrix = mix_mat,
@@ -217,7 +239,8 @@ fit_spline_rt <- function(data,
                        required_acceptance_ratio = 0.20,
                        start_adaptation = start_adaptation,
                        baseline_hosp_bed_capacity = hosp_beds,
-                       baseline_ICU_bed_capacity = icu_beds)
+                       baseline_ICU_bed_capacity = icu_beds,
+                       ...)
 
 
   ## remove things so they don't atke up so much memory when you save them :)
@@ -233,6 +256,9 @@ fit_spline_rt <- function(data,
     res$pmcmc_results$chains[[i]]$covariance_matrix <- tail(res$pmcmc_results$chains$chain1$covariance_matrix,1)
   }
 
+  # Add sero_det to output
+  res$pmcmc_results$inputs$pars_obs$sero_det <- sero_det
+
   return(res)
 
 }
@@ -242,66 +268,66 @@ fit_spline_rt <- function(data,
 #' @param res Output of [[squire::pmcmc]]
 seroprev_df <- function(res, sero_sens = 0.9, pcr_sens = 0.95) {
 
-# seroconversion data from brazeay report 34
-prob_conversion <-  cumsum(dgamma(0:300,shape = 5, rate = 1/2))/max(cumsum(dgamma(0:300,shape = 5, rate = 1/2)))
-sero_det <- cumsum(dweibull(0:300, 3.669807, scale = 143.7046))
-sero_det <- prob_conversion-sero_det
-sero_det[sero_det < 0] <- 0
-sero_det <- sero_det/max(sero_det)*sero_sens  # assumed maximum test sensitivitys
+  # seroconversion data from brazeay report 34
+  sero_det <- res$pmcmc_results$inputs$pars_obs$sero_det
 
-# from Kay et al 2021 Science (actually from preprint)
-pcr_det <- c(9.206156e-13, 9.206156e-13, 3.678794e-01, 9.645600e-01,
-             9.575796e-01, 9.492607e-01, 9.393628e-01, 9.276090e-01,
-             9.136834e-01, 8.972309e-01, 8.778578e-01, 8.551374e-01,
-             8.286197e-01, 7.978491e-01, 7.623916e-01, 7.218741e-01,
-             6.760375e-01, 6.248060e-01, 5.683688e-01, 5.072699e-01,
-             4.525317e-01, 4.036538e-01, 3.600134e-01, 3.210533e-01,
-             2.862752e-01, 2.552337e-01, 2.275302e-01, 2.028085e-01,
-             1.807502e-01, 1.610705e-01, 1.435151e-01, 1.278563e-01,
-             1.138910e-01, 1.014375e-01, 9.033344e-02)
-pcr_det <- (pcr_det/max(pcr_det))*pcr_sens
+  # from Kay et al 2021 Science (actually from preprint)
+  pcr_det <- c(9.206156e-13, 9.206156e-13, 3.678794e-01, 9.645600e-01,
+               9.575796e-01, 9.492607e-01, 9.393628e-01, 9.276090e-01,
+               9.136834e-01, 8.972309e-01, 8.778578e-01, 8.551374e-01,
+               8.286197e-01, 7.978491e-01, 7.623916e-01, 7.218741e-01,
+               6.760375e-01, 6.248060e-01, 5.683688e-01, 5.072699e-01,
+               4.525317e-01, 4.036538e-01, 3.600134e-01, 3.210533e-01,
+               2.862752e-01, 2.552337e-01, 2.275302e-01, 2.028085e-01,
+               1.807502e-01, 1.610705e-01, 1.435151e-01, 1.278563e-01,
+               1.138910e-01, 1.014375e-01, 9.033344e-02)
+  pcr_det <- (pcr_det/max(pcr_det))*pcr_sens
 
-# additional_functions for rolling
-roll_func <- function(x, det) {
-  l <- length(det)
-  ret <- rep(0, length(x))
-  for(i in seq_along(ret)) {
-    to_sum <- tail(x[seq_len(i)], length(det))
-    ret[i] <- sum(rev(to_sum)*head(det, length(to_sum)))
+  # additional_functions for rolling
+  roll_func <- function(x, det) {
+    l <- length(det)
+    ret <- rep(0, length(x))
+    for(i in seq_along(ret)) {
+      to_sum <- tail(x[seq_len(i)], length(det))
+      ret[i] <- sum(rev(to_sum)*head(det, length(to_sum)))
+    }
+    return(ret)
   }
-  return(ret)
-}
 
-# get symptom onset data
-date_0 <- max(res$pmcmc_results$inputs$data$date)
-inf <- squire::format_output(res, c("S"), date_0 = max(res$pmcmc_results$inputs$data$date)) %>%
-  na.omit() %>%
-  mutate(S = as.integer(.data$y)) %>%
-  group_by(replicate) %>%
-  mutate(infections = c(0, diff(max(.data$S)-.data$S))) %>%
-  select(replicate, t, date, .data$S, .data$infections)
+  # get symptom onset data
+  date_0 <- max(res$pmcmc_results$inputs$data$date)
+  inf <- squire::format_output(res, c("S"), date_0 = max(res$pmcmc_results$inputs$data$date)) %>%
+    na.omit() %>%
+    mutate(S = as.integer(.data$y)) %>%
+    group_by(replicate) %>%
+    mutate(infections = c(0, diff(max(.data$S)-.data$S))) %>%
+    select(replicate, t, date, .data$S, .data$infections)
 
-# correctly format
-inf <- left_join(inf,
-                 squire::format_output(
-                   res, c("infections"),
-                   date_0 = max(res$pmcmc_results$inputs$data$date)
-                 ) %>%
-                   mutate(symptoms = as.integer(.data$y)) %>%
-                   select(replicate, t, .data$date, .data$symptoms),
-                 by = c("replicate", "t", "date"))
+  # correctly format
+  inf <- left_join(inf,
+                   squire::format_output(
+                     res, c("infections"),
+                     date_0 = max(res$pmcmc_results$inputs$data$date)
+                   ) %>%
+                     mutate(symptoms = as.integer(.data$y)) %>%
+                     select(replicate, t, .data$date, .data$symptoms),
+                   by = c("replicate", "t", "date"))
 
-inf <- inf %>%
-  group_by(replicate) %>%
-  na.omit() %>%
-  mutate(pcr_positive = roll_func(.data$infections, pcr_det),
-         sero_positive = roll_func(.data$symptoms, sero_det),
-         ps_ratio = .data$pcr_positive/.data$sero_positive,
-         sero_perc = .data$sero_positive/max(.data$S,na.rm = TRUE),
-         pcr_perc = .data$pcr_positive/max(.data$S,na.rm = TRUE)) %>%
-  ungroup
+  inf <- inf %>%
+    group_by(replicate) %>%
+    na.omit() %>%
+    mutate(pcr_positive = roll_func(.data$infections, pcr_det),
+           sero_positive = roll_func(.data$symptoms, sero_det),
+           ps_ratio = .data$pcr_positive/.data$sero_positive,
+           sero_perc = .data$sero_positive/max(.data$S,na.rm = TRUE),
+           pcr_perc = .data$pcr_positive/max(.data$S,na.rm = TRUE)) %>%
+    ungroup
 
-inf$reporting_fraction <- res$pmcmc_results$inputs$pars_obs$phi_death
-return(inf)
+  inf$reporting_fraction <- res$pmcmc_results$inputs$pars_obs$phi_death
+  return(inf)
 
 }
+
+Summ_sero_pcr_data <- function(x){x %>% group_by(date) %>%
+    summarise(mean_pcr = mean(pcr_perc), min_pcr = min(pcr_perc), max_pcr = max(pcr_perc),
+              mean_sero = mean(sero_perc), min_sero = min(sero_perc),max_sero = max(sero_perc))}

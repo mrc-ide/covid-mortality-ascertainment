@@ -1,11 +1,15 @@
+#############################
+### 01. Demonstration Fit ###
+#############################
 
-install.packages("here")
+# OJ's example code for how to use fit_spline_rt, seroprev_df and plotting results
+# install.packages("here")
+# install.packages("devtools")
 library(devtools)
-install.packages("devtools")
+library(tidyverse)
 devtools::load_all(".")
 devtools::install_dev_deps()
 
-library(tidyverse)
 
 # Example of how to run say one model fit for a made up country:
 owid <- read.csv("https://covid.ourworldindata.org/data/owid-covid-data.csv")
