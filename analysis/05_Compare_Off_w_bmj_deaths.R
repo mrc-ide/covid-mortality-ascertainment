@@ -37,7 +37,7 @@ fit <- fit_spline_rt(data = data,
                      population = pop_st_lu,
                      reporting_fraction = 0.1,
                      reporting_fraction_bounds = c(0.25,0.1,1),
-                     n_mcmc = 10000,
+                     n_mcmc = 100000,
                      replicates = 100,
                      rw_duration = 14,
                      hosp_beds = 1e10,
@@ -46,8 +46,14 @@ fit <- fit_spline_rt(data = data,
                      prob_non_severe_death_treatment = prob_death_tot_IFR_frac,
                      dur_get_ox_survive =12,
                      dur_get_ox_die =10,
-                     dur_R = Inf
+                     dur_R = Inf,
+                     sero_df_start = c("2020-07-04","2020-07-18"),
+                     sero_df_end = c("2020-07-27","2020-08-10"),
+                     sero_df_pos = c(0.021*4258, 0.106*4258),
+                     sero_df_samples = c(4258,4258)
+
 )
+
 
 plot(fit, particle_fit = T)
 

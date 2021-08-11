@@ -80,8 +80,7 @@ saveRDS(pop_st_lu, "analysis/data/Code-generated-data/02_02_Lusaka_pop_2020_Open
 # Bulawayo contact matrix:
 Bula_Con_Mat<- read.csv("analysis/data/Bulawayo-Contact-Matrix.csv", row.names = 1, header = T, nrows = 16)
 # max(signif(Bula_Con_Mat - get_mixing_matrix(country = "Zambia"), 1)) # Compare the Bulawayo contact matrix with default
-## There isn't really much difference, as far as I can tell.
-# Use the bulawayo anyway
+# This is the one that is used anyway
 
 ## Initial run
 fit <- fit_spline_rt(data = data,

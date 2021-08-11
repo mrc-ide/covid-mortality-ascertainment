@@ -1,140 +1,218 @@
-Con_df <- read.csv("../Bonus Files/Data/Contact_Matrix_Meta_Data/Zim/Zimbabwe_Melegaro_2017/2017_Melegaro_Zimbabwe_contact_common.csv")[,c(1:5)]
-ConEx_df <- read.csv("../Bonus Files/Data/Contact_Matrix_Meta_Data/Zim/Zimbabwe_Melegaro_2017/2017_Melegaro_Zimbabwe_contact_extra.csv")
-Par_df <- read.csv("../Bonus Files/Data/Contact_Matrix_Meta_Data/Zim/Zimbabwe_Melegaro_2017/2017_Melegaro_Zimbabwe_participant_common.csv")[,c(1,3)]
-Par2_df <- read.csv("../Bonus Files/Data/Contact_Matrix_Meta_Data/Zim/Zimbabwe_Melegaro_2017/2017_Melegaro_Zimbabwe_participant_extra.csv")[,c(1,3,4)]
-# table(Par2_df[,c(3,9)])
+########################################################################################################################
+### 03. Contact Matrices: Create contact matrix for Nyanga from the Manicaland data to be used as a proxy for Lusaka ###
+########################################################################################################################
+## Follows methods in supp 2 of Melegaro et al. 2017
+rm(list=ls())
+library(tidyverse)
+library(reshape2)
 
-# Add ages to participant ID
-Con_df_age <- merge(Con_df, Par_df, by="part_id")
+#####################
+### 1. Prep files ###
+#####################
 
-# How many participants were missing an age?
-# Par_df[is.na(Par_df$part_age),]
-## Only participant 481 was missing
-# Par2_df[Par2_df$part_id==481,]
-## 481 was from study site 2 (Nyanga) and is in age group 2: that means they are 1-5 years old, so likely to be in the first category, although there's a chance that could be 5 and in the next group.
+# Load and format the data
+Con_df <- read.csv("analysis/data/raw/Manicaland_Contact_Matrix_Data/2017_Melegaro_Zimbabwe_contact_common.csv")[,c(1:5)]
+ConEx_df <- read.csv("analysis/data/raw/Manicaland_Contact_Matrix_Data/2017_Melegaro_Zimbabwe_contact_extra.csv")
+Par_df <- read.csv("analysis/data/raw/Manicaland_Contact_Matrix_Data/2017_Melegaro_Zimbabwe_participant_common.csv")[,c(1,3)]
+Par2_df <- read.csv("analysis/data/raw/Manicaland_Contact_Matrix_Data/2017_Melegaro_Zimbabwe_participant_extra.csv")[,c(1,3,4)]
 
-# For the time being, let's remove these rows
-Con_df_age <- Con_df_age[!is.na(Con_df_age$part_age),]
-# table(is.na(Con_df_age$part_age))
+# Merge par files
+Par_full <- merge(Par_df, Par2_df, by = "part_id")
 
-# Select rural/town data
-ID_Town <- Par2_df$part_id[Par2_df$study_site==2]
-# ID_Rur <- Par2_df$part_id[Par2_df$study_site==1]
-Con_df_age <- Con_df_age[Con_df_age$part_id %in% ID_Town,]
-# Rur_df <- Con_df_age[Con_df_age$part_id %in% ID_Rur,]
+# For the time being, let's remove the rows where participant age was not given (there is only one of these),
+# and specify location
+Par_full <- Par_full[!is.na(Par_full$part_age),] %>%
+  mutate(site = ifelse(study_site==2,"Nyanga",ifelse(study_site==1,"Watsomba",NA))) %>%
+  mutate(par_age_gr = cut(x = part_age, breaks = c(seq(0,75,5),120),include.lowest = T, right = F))
 
-# For the time being, use all the data.
+# Merge Contact files
+Con_full <- merge(Con_df,ConEx_df, by = "cont_id")
 
-# Check how many contact ages are missing:
-# Con_df_age$cnt_age_Group <- NaN
-# If data is exact, bring in 5 year age group
-# Where ages are exact
-ExactAges <- !is.na(Con_df_age$cnt_age_exact)
-Con_df_age$cnt_age_Group <- cut(x = Con_df_age$cnt_age_exact, breaks = c(seq(0,75,5),120),include.lowest = T, right = F)
+# Merge Con and Par files, 27 rows are lost because we are removing one participant (481)
+df_full <- merge(Con_full, Par_full, by = "part_id")
+# saveRDS(object = df_full, file = "analysis/data/Code-generated-data/Con_Mat_df_full.rds")
+# df_full <- readRDS("analysis/data/Code-generated-data/Con_Mat_df_full.rds")
 
-## Look at remaining min and max ages:
-MinMax_rows <- is.na(Con_df_age$cnt_age_Group)# & !is.na(Con_df_age$cnt_age_est_min)
-## Age categories are 1: < 1 yr. 2: 1-5 yrs. 3: 6-12 yrs. 4: 13-18 yrs. 5: 19-34 yrs. 6: 35-59 yrs. 7: 60+ yrs.
+# Also, 4 participants are not found in the contact data: part_id: 152, 385, 1012, 1103
+# table(Par_full$part_id %in% Con_full$part_id)
+# Par_full[!Par_full$part_id %in% unique(df_full$part_id),]
+
+## Calculate age distributions by groups
+
+# - Get the sample age groups n_i:
+ni <- table(cut(x = unique(df_full[,c("part_id","part_age")])$part_age, breaks = c(seq(0,75,5),120),include.lowest = T, right = F))
+sigma_ni <- sum(ni)
+
+# - Get the sample age groups per site
+ni_s <- cbind(ni, sapply(X = 1:2, function(x){
+  table(cut(x = unique(df_full[df_full$study_site==x,c("part_id","part_age")])$part_age, breaks = c(seq(0,75,5),120),include.lowest = T, right = F))
+}))
+# sum(c(sigma_ni_s1,sigma_ni_s2))
+
+# - Get the sample age groups per site per day (These are the same as per site)
+ni_s_d <- cbind(ni_s, apply(expand.grid(c(1,2),c(1,2)), 1, function(x){
+  table(cut(x = unique(df_full[df_full$study_site==x[1] & df_full$studyDay==x[2],c("part_id","part_age")])$part_age, breaks = c(seq(0,75,5),120),include.lowest = T, right = F))
+}))
+colnames(ni_s_d)[-1] <- c("ni_s1","ni_s2","ni_s1_d1","ni_s2_d1","ni_s1_d2","ni_s2_d2") # Label nicely
+ni_s_d <- ni_s_d[,c("ni","ni_s1","ni_s2","ni_s1_d1","ni_s1_d2","ni_s2_d1","ni_s2_d2")] # Reorder
 
 # Bring in pop age distribution:
-AgeDistr <- read.csv(file = "../Bonus Files/Data/Contact_Matrix_Meta_Data/Zim/Zimbabwe_Melegaro_2017/age_dist_ny_wa_total.csv",sep = ";")
-
-# So for the category groupings listed above,
-ReformedAgeStr <- lapply(X = list("[0,5)"=0:4,
-                                  "[5,10)"=5:9,
-                                  "[10,15)"=10:14,
-                                  "[15,20)"="15-19",
-                                  "[20,25)"="20-24",
-                                  "[25,30)"="25-29",
-                                  "[30,35)"="30-34",
-                                  "[35,40)"="35-39",
-                                  "[40,45)"="40-44",
-                                  "[45,50)"="45-49",
-                                  "[50,55)"="50-54",
-                                  "[55,60)"="55-59",
-                                  "[60,65)"="60-64",
-                                  "[65,70)"="65-69",
-                                  "[70,75)"="70-74",
-                                  "[75,120]"=c("75-79","80-84","85-89","90+")), FUN = function(x){#browser()
-                                    colSums(AgeDistr[AgeDistr$age %in% x,2:3])})
+PopAgeDistr <- read.csv(file = "analysis/data/raw/Manicaland_Contact_Matrix_Data/age_dist_ny_wa_total.csv",sep = ";")
+# saveRDS(object = PopAgeDistr, file = "../PopAgeDistr.rds")
 
 
-ReformedAgeStr2 <- as.data.frame(cbind(names(ReformedAgeStr),do.call(rbind.data.frame, ReformedAgeStr)))
-colnames(ReformedAgeStr2) <- c("AgeGroup","Nyanga","Watsomba")
-AgeDistr <- ReformedAgeStr2
+##############################
+### 1. Impute missing ages ###
+##############################
 
-# Make a probability matrix for Nyanga
-AgeProbDist <- AgeDistr$Nyanga/sum(AgeDistr$Nyanga)
-# Make matrix to correlate divergence in age groups
-AgeGConMat <- cbind(
-  c(1,rep(0,15)), # if min = 0: 0-5
-  c(4,1,rep(0,14)), # if min = 1, 4 in 0-4, 1 in 5-9
-  c(0,4,3,rep(0,13)), # if min = 6 (6-12), 4 in 5-9, 3 in the 10-14 group
-  c(rep(0,2),2,4,rep(0,12)), # if min = 13(-18), 2 in 10-14, 4 in 15-18
-  c(rep(0,3),1,1,1,1,rep(0,9)), # if min = 19(-35),
-  c(rep(0,7),1,1,1,1,1,rep(0,4)),
-  c(rep(0,12),rep(1,4)))
+# Break down PopAgeDistr by into individual ages
+PopAgeBreakDown <- rbind(PopAgeDistr[1:15,],
+      cbind(age = 15:89,apply(PopAgeDistr[16:30,2:3]/5, 2, FUN = rep, each = 5)),
+      cbind(age = 90:105,sapply(PopAgeDistr[31,2:3]/length(90:105), FUN = rep, each = length(90:105)))
+      ) %>%
+  gather(key = Site, value = val, -age) %>%
+  mutate(Site = str_to_title(Site))
 
-MinAges <-sort(unique(Con_df_age$cnt_age_est_min),na.last = T)
-# Con_df_age[MinMax_rows,]$cnt_age_Group
-
+# 20 imputation steps, returns grouped ages of cont and part
+Imp <- 1:20
 set.seed(seed = 1)
+df_ImpList <- lapply(X = Imp, function(y){
+  GroupedAgesFromMin <- apply(X = df_full[is.na(df_full$cnt_age_exact),c("cnt_age_est_min","cnt_age_est_max","site")], MARGIN = 1, FUN = function(x){
+    if(is.na(x["cnt_age_est_min"])){
+      sample(x = unique(as.numeric(PopAgeBreakDown$age)), replace = T, size = 1, prob = PopAgeBreakDown[PopAgeBreakDown$Site == x["site"],"val"])} else {
+        sample(x = x["cnt_age_est_min"]:x["cnt_age_est_max"], replace = T, size = 1, prob = PopAgeBreakDown[as.numeric(PopAgeBreakDown$age) %in% x["cnt_age_est_min"]:x["cnt_age_est_max"] & PopAgeBreakDown$Site == x["site"],"val"])
+      }})
+  df_full[is.na(df_full$cnt_age_exact),"cnt_age_exact"] <- GroupedAgesFromMin
+  df_full$con_age_gr <- cut(x = df_full$cnt_age_exact, breaks = c(seq(0,75,5),120),include.lowest = T, right = F)
+  return(df_full)
+})
 
-GroupedAgesFromMin <- sapply(X = Con_df_age[MinMax_rows,]$cnt_age_est_min, FUN = function(x){
-  # browser()
-  if(is.na(x)){sample(x = AgeDistr$AgeGroup, replace = T, size = 1, prob = AgeProbDist)} else {
-    sample(x = AgeDistr$AgeGroup, replace = T, size = 1, prob = AgeGConMat[,which(x==MinAges)]*AgeProbDist)
-  }})
-
-Con_df_age$cnt_age_Group[MinMax_rows] <- GroupedAgesFromMin
-
-
-### Participant age grouping:
-Con_df_age$prt_age_Group <- cut(x = Con_df_age$part_age, breaks = c(seq(0,75,5),120),include.lowest = T, right = F)
-
-# Split into the two days:
-
-
-Day1 <- ConEx_df$cont_id[ConEx_df$studyDay==1]
-Day2 <- ConEx_df$cont_id[ConEx_df$studyDay==2]
+# Check values are full
+table(is.na(df_ImpList[[1]]$con_age_gr))
+table(is.na(df_ImpList[[1]]$par_age_gr))
 
 
-Con_df_age[Con_df_age$cont_id %in% Day1,]
+###################################
+### 2. Construct Contact Matrix ###
+###################################
+
+# Take the data and...
+df_ImpList_mat <-  lapply(Imp, function(x){
+  df_ImpList[[x]] %>% group_by(site, studyDay) %>% # group by site and day
+    select(par_age_gr, con_age_gr, site, studyDay) %>% count(par_age_gr, con_age_gr) %>% # count numbers in each group
+    spread(key = con_age_gr, value = n) %>% ungroup %>% # create matrix
+    split(list(.$studyDay,.$site))}) # Split the matrix into 4 for sites and days
+
+# Format into something that looks a bit more like a contact matrix
+MatList <- lapply(Imp, function(x){
+  lapply(1:length(df_ImpList_mat[[x]]), function(y){
+    df_ImpList_mat[[x]][[y]] %>% select(-site,-studyDay) %>% # Remove site and studyDay columns
+      column_to_rownames(var = "par_age_gr") %>% # Turn age gr column into row names
+      replace(is.na(.),0) # replace NA with 0
+  })
+  })
 
 
-Con_Mat_ini <- table(Con_df_age[,c("cnt_age_Group","prt_age_Group")])
+# Average number of observed contacts per day, per site (eq 7)
+m_ij_sd <- lapply(Imp, function(x){
+  lapply(1:length(df_ImpList_mat[[x]]), function(y){
+    MatList[[x]][[y]]/ni_s_d[,c("ni_s1_d1","ni_s1_d2","ni_s2_d1","ni_s2_d2")][,y]})
+})
+
+# Average number of observed contacts per site (eq 8)
+m_ij_s <- lapply(Imp, function(x){
+  lapply(c(1,3),function(y){
+    (m_ij_sd[[x]][[y]]*ni_s_d[,c("ni_s1_d1","ni_s1_d2","ni_s2_d1","ni_s2_d2")][,y] + m_ij_sd[[x]][[y+1]]*ni_s_d[,c("ni_s1_d1","ni_s1_d2","ni_s2_d1","ni_s2_d2")][,y+1])/
+      (rowSums(ni_s_d[,c("ni_s1_d1","ni_s1_d2","ni_s2_d1","ni_s2_d2")][,c(y,y+1)]))})
+})
 
 
-# library(squire)
-# get_mixing_matrix(country = "Spain")
+# Average number of observed contacts (eq 9).
+# Note that the n_i per day are the same, but it doesn't matter if you use for one day or the total, because they are found on both sides of the fraction
+m_ij <- lapply(Imp, function(x){
+  (m_ij_s[[x]][[1]]*rowSums(ni_s_d[,c("ni_s1_d1","ni_s1_d2")]) + m_ij_sd[[x]][[2]]*rowSums(ni_s_d[,c("ni_s2_d1","ni_s2_d2")]))/
+      (rowSums(ni_s_d[,c("ni_s1_d1","ni_s1_d2","ni_s2_d1","ni_s2_d2")]))
+  })
+
+# Get the population grouped age structure
+PopAgeTot <- PopAgeBreakDown %>% group_by(AgeGroup = cut(x = as.numeric(age), breaks = c(seq(0,75,5),120),include.lowest = T, right = F)) %>%
+  summarise(AgeTot = sum(val))
+pop_i <- as.numeric(PopAgeTot$AgeTot)
+
+# Expected number of contacts at the population level (eq 10):
+C_ij <- lapply(Imp, function(x){
+  pop_i * m_ij[[x]]})
+
+# Correction for reciprocity of contacts (eq 11):
+n_i <- table(unique(df_ImpList[[1]][,c("part_id","par_age_gr")])$par_age_gr)
+n_i_plus_n_j <- matrix(rep(n_i, length(n_i)), nrow = length(n_i)) + t(matrix(rep(n_i, length(n_i)), nrow = length(n_i)))
+
+Cs_ij <- lapply(Imp, function(x){
+  (C_ij[[x]]*c(n_i) + t(C_ij[[x]]*c(n_i)))/ n_i_plus_n_j
+})
+
+# Average number of contacts of individual i with contacts j
+ms_ij <- lapply(Imp, function(x){
+  Cs_ij[[x]]/pop_i})
+
+# Contact rates at which individual aged i contacts per day an individual aged j from the matrix
+cs_ij <- lapply(Imp, function(x){
+  t(t(ms_ij[[x]])/pop_i)})
+
+# Average out replicates:
+cs_ij_av <- Reduce('+',cs_ij)/20
+
+
+squire::get_mixing_matrix("Zimbabwe")
+heatmap(squire::get_mixing_matrix("Zimbabwe"),Rowv = NA, Colv = NA)
+heatmap(cs_ij_av,Rowv = NA, Colv = NA)
 
 
 
-
-## Practise with the missing data points
-## They fill the missing points by taking a random value from the population structure distribution.
-## Q; What population structure distribution are they using?
-
-# table(is.na(Town_df$part_age))
-
-# Town_df$par_age_grp <- cut(Town_df$part_age, breaks = breaks, include.lowest = T, right = F)#, labels = 1:16)
-# Town_df$con_age_grp <- cut(Town_df$cnt_age_exact, breaks = breaks, include.lowest = F, right = F)#, labels = 1:16)
-
-# Town_df_fil <- na.omit(Town_df[,c("part_id","par_age_grp","con_age_grp")])
-
-# Ini_Mat <- table(Town_df_fil[,-1])
+##############################
+### 3. Bivariate Smoothing ###
+##############################
 
 
-Av_con <- t(apply(X = Con_Mat_ini, MARGIN = 1, FUN = function(x){x/colSums(Con_Mat_ini)}))
+# Turn matrix back into data frame
+cs_ij_av <- data.frame(cs_ij_av)
+colnames(cs_ij_av) <- 1:16
+Gathered_Matrix <- cs_ij_av %>%
+  remove_rownames() %>% mutate(n_i = n_i) %>% mutate(pop_i = pop_i) %>%
+  rownames_to_column(var = "Par_Age_gr") %>%
+  gather(key = Con_Age_gr, value = val, -Par_Age_gr, -n_i, -pop_i)
 
-Av_con_Sym <- (Av_con+t(Av_con))/2
+## Prep Data:
+Gathered_Matrix$Par_Age_gr <- as.numeric(Gathered_Matrix$Par_Age_gr)
+Gathered_Matrix$Con_Age_gr <- as.numeric(Gathered_Matrix$Con_Age_gr)
+Gathered_Matrix$n_i <- as.numeric(Gathered_Matrix$n_i)
+Gathered_Matrix$ln_n_i <- log(Gathered_Matrix$n_i)
 
-squire::get_mixing_matrix("France")
-squire::get_mixing_matrix("Zambia")
+# Perform GAM smoothing
+library(mgcv)
+ModFit <- gam(val ~  te(Par_Age_gr, Con_Age_gr, bs="tp", k = 10) + offset(ln_n_i),
+              data = Gathered_Matrix,
+              family = nb)
 
-# colSums(Ini_Mat)
+# summary(ModFit)
+# plot(ModFit)
+# plot(ModFit, scheme = 2)
 
+# Create predictions based on model
+Predictions <- predict(object = ModFit, type='response')
 
-##
+# Look at fit
+cbind(Gathered_Matrix,Predictions)
 
+# Shape as matrix
+BsmMat <- Gathered_Matrix %>% mutate(Predictions = Predictions) %>%
+  select(Par_Age_gr,Con_Age_gr,Predictions) %>%
+  spread(key = Con_Age_gr, value = Predictions) %>%
+  column_to_rownames("Par_Age_gr")
 
+## Scale up again
+t(t(BsmMat)*pop_i)
+heatmap(t(t(BsmMat)*pop_i),Rowv = NA, Colv = NA)
+
+# Compare with Reported Matrix
+squire::get_mixing_matrix("Zimbabwe")
