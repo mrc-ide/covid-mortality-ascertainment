@@ -21,6 +21,17 @@ fit_spline_rt <- function(data,
                           rw_duration = 14,
                           hosp_beds = 10000000000,
                           icu_beds = 10000000000,
+                          sero_sens = 0.9,
+                          sero_df_start = NULL,
+                          sero_df_end = NULL,
+                          sero_df_pos = NULL,
+                          sero_df_samples = NULL,
+                          pcr_sens = 0.95,
+                          pcr_df_start = NULL,
+                          pcr_df_end = NULL,
+                          pcr_df_pos = NULL,
+                          pcr_df_samples = NULL,
+
                           ...) {
 
   ## -----------------------------------------------------------------------------
@@ -130,12 +141,26 @@ fit_spline_rt <- function(data,
   ## -----------------------------------------------------------------------------
 
   # seroconversion data from brazeay report 34
-  sero_sens = 0.9
+  # sero_sens = 0.9
   prob_conversion <-  cumsum(dgamma(0:300,shape = 5, rate = 1/2))/max(cumsum(dgamma(0:300,shape = 5, rate = 1/2)))
   sero_det <- cumsum(dweibull(0:300, 3.669807, scale = 143.7046))
   sero_det <- prob_conversion-sero_det
   sero_det[sero_det < 0] <- 0
   sero_det <- sero_det/max(sero_det)*sero_sens  # assumed maximum test sensitivitys
+
+  # from Hay et al 2021 Science (actually from preprint)
+  # pcr_sens = 0.95
+  pcr_det <- c(9.206156e-13, 9.206156e-13, 3.678794e-01, 9.645600e-01,
+               9.575796e-01, 9.492607e-01, 9.393628e-01, 9.276090e-01,
+               9.136834e-01, 8.972309e-01, 8.778578e-01, 8.551374e-01,
+               8.286197e-01, 7.978491e-01, 7.623916e-01, 7.218741e-01,
+               6.760375e-01, 6.248060e-01, 5.683688e-01, 5.072699e-01,
+               4.525317e-01, 4.036538e-01, 3.600134e-01, 3.210533e-01,
+               2.862752e-01, 2.552337e-01, 2.275302e-01, 2.028085e-01,
+               1.807502e-01, 1.610705e-01, 1.435151e-01, 1.278563e-01,
+               1.138910e-01, 1.014375e-01, 9.033344e-02)
+  pcr_det <- (pcr_det/max(pcr_det))*pcr_sens
+
 
   # PMCMC Parameters
   pars_init = list('start_date' = date_start,
@@ -159,8 +184,7 @@ fit_spline_rt <- function(data,
   pars_discrete = list('start_date' = TRUE, 'R0' = FALSE, 'Meff' = FALSE,
                        'Meff_pl' = FALSE, "Rt_shift" = FALSE, "Rt_shift_scale" = FALSE)
   pars_obs = list(phi_cases = 1, k_cases = 2, phi_death = 1, k_death = 2, exp_noise = 1e6,
-                  sero_df = data.frame(date_start = c("2020-07-04","2020-07-18"), date_end = c("2020-07-27","2020-08-10"), sero_pos = c(0.021*4258, 0.106*4258), samples = c(4258,4258)),
-                  sero_det = sero_det)
+                  sero_det = sero_det, pcr_det = pcr_det)
 
   # add in the spline list
   pars_init <- append(pars_init, pars_init_rw)
@@ -174,6 +198,21 @@ fit_spline_rt <- function(data,
     pars_min <- append(pars_min, c("rf"=reporting_fraction_bounds[2]))
     pars_max <- append(pars_max, c("rf"=reporting_fraction_bounds[3]))
     pars_discrete <- append(pars_discrete, c("rf"=FALSE))
+  }
+# browser()
+  if(!is.null(unlist(list(sero_df_start,sero_df_end,sero_df_pos,sero_df_samples)))){
+    ## Check all values are correct
+    if(any(lapply(list(sero_df_start,sero_df_end,sero_df_pos,sero_df_samples), length) != length(sero_df_start))){
+      stop("sero_df inputs must have the same length")}
+    sero_df = data.frame(date_start = sero_df_start, date_end = sero_df_end, sero_pos = sero_df_pos, samples = sero_df_samples)
+    pars_obs <- append(pars_obs, c("sero_df" = list(sero_df)))
+  }
+
+  if(!is.null(unlist(list(pcr_df_start,pcr_df_end,pcr_df_pos,pcr_df_samples)))){
+    if(any(lapply(list(pcr_df_start,pcr_df_end,pcr_df_pos,pcr_df_samples), length) != length(pcr_df_start))){
+      stop("pcr_df inputs must have the same length")}
+    pcr_df = data.frame(date_start = pcr_df_start, date_end = pcr_df_end, pcr_pos = pcr_df_pos, samples = pcr_df_samples)
+    pars_obs <- append(pars_obs, c("pcr_df" = list(pcr_df)))
   }
 
   # Covariance Matrix
@@ -256,8 +295,11 @@ fit_spline_rt <- function(data,
     res$pmcmc_results$chains[[i]]$covariance_matrix <- tail(res$pmcmc_results$chains$chain1$covariance_matrix,1)
   }
 
-  # Add sero_det to output
+  # Add sero_det and pcr_det to output
+  res$pmcmc_results$inputs$pars_obs$sero_sens <- sero_sens
   res$pmcmc_results$inputs$pars_obs$sero_det <- sero_det
+  res$pmcmc_results$inputs$pars_obs$pcr_sens <- pcr_sens
+  res$pmcmc_results$inputs$pars_obs$pcr_det <- pcr_det
 
   return(res)
 
@@ -266,22 +308,15 @@ fit_spline_rt <- function(data,
 #' Extract PCR prevalence and seroprevalence from squire model fit
 #'
 #' @param res Output of [[squire::pmcmc]]
-seroprev_df <- function(res, sero_sens = 0.9, pcr_sens = 0.95) {
+seroprev_df <- function(res){
 
   # seroconversion data from brazeay report 34
+  sero_sens <- res$pmcmc_results$inputs$pars_obs$sero_sens
   sero_det <- res$pmcmc_results$inputs$pars_obs$sero_det
 
-  # from Kay et al 2021 Science (actually from preprint)
-  pcr_det <- c(9.206156e-13, 9.206156e-13, 3.678794e-01, 9.645600e-01,
-               9.575796e-01, 9.492607e-01, 9.393628e-01, 9.276090e-01,
-               9.136834e-01, 8.972309e-01, 8.778578e-01, 8.551374e-01,
-               8.286197e-01, 7.978491e-01, 7.623916e-01, 7.218741e-01,
-               6.760375e-01, 6.248060e-01, 5.683688e-01, 5.072699e-01,
-               4.525317e-01, 4.036538e-01, 3.600134e-01, 3.210533e-01,
-               2.862752e-01, 2.552337e-01, 2.275302e-01, 2.028085e-01,
-               1.807502e-01, 1.610705e-01, 1.435151e-01, 1.278563e-01,
-               1.138910e-01, 1.014375e-01, 9.033344e-02)
-  pcr_det <- (pcr_det/max(pcr_det))*pcr_sens
+  # from Hay et al 2021 Science (actually from preprint)
+  pcr_sens <- res$pmcmc_results$inputs$pars_obs$pcr_sens
+  pcr_det <- res$pmcmc_results$inputs$pars_obs$pcr_det
 
   # additional_functions for rolling
   roll_func <- function(x, det) {
