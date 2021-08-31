@@ -14,7 +14,7 @@
 fit_spline_rt <- function(data,
                           country,
                           population,
-                          reporting_fraction,
+                          reporting_fraction=1,
                           reporting_fraction_bounds=NULL,
                           n_mcmc = 10000,
                           replicates = 100,
@@ -364,5 +364,5 @@ seroprev_df <- function(res){
 }
 
 Summ_sero_pcr_data <- function(x){x %>% group_by(date) %>%
-    summarise(mean_pcr = mean(pcr_perc), min_pcr = min(pcr_perc), max_pcr = max(pcr_perc),
-              mean_sero = mean(sero_perc), min_sero = min(sero_perc),max_sero = max(sero_perc))}
+    summarise(mean_pcr = mean(pcr_perc)*100, min_pcr = min(pcr_perc)*100, max_pcr = max(pcr_perc)*100,
+              mean_sero = mean(sero_perc)*100, min_sero = min(sero_perc)*100, max_sero = max(sero_perc)*100)}
