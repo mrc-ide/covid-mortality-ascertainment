@@ -3,6 +3,8 @@
 devtools::load_all("../../Squire/squire/squire.Rproj")
 devtools::load_all(".")
 
+library(reshape2)
+library(tidyverse)
 #####################################################################
 ### 1. Fit model to official data and lancet values: Estimate rf. ###
 #####################################################################
@@ -122,7 +124,7 @@ dev.off()
 ## Bring in BMJ data:
 BMJ <- readRDS("analysis/data/Code-generated-data/00_05b_BMJ_Data_DailyEsts.rds")
 # Scale up
-fit <- readRDS(file = "analysis/results/p_01_Official_Data_Lancet_est_rf_resonable.rds")
+fit <- readRDS(file = "../p_01_Official_Data_Lancet_est_rf_resonable.rds")
 p_pos <- seroprev_df(fit) %>% filter(date>="2020-06-08" & date<="2020-09-27") %>%
   group_by(date) %>% summarise(pcr_perc_av = mean(pcr_perc)) %>% # average over replicates
   # mutate(TimeFrame = cut.Date(as.Date(date), breaks = as.Date(c("2020-06-08","2020-06-22","2020-07-06","2020-07-20","2020-08-03","2020-08-17","2020-08-31","2020-09-14","2020-09-28")), labels = 1:8, start.on.monday = T)) %>%
@@ -147,7 +149,7 @@ IFR_vec <- c(0.4,0.6,0.8,1,1.2,1.4,1.6,1.8,2)
 
 fit_l_IFR <- lapply(1:length(IFR_vec), function(x){
 
-  prob_death_tot_IFR_frac <- ifelse(prob_death_tot*IFR_vec[x]>1,1,prob_death_tot*IFR_vec[x])
+  prob_death_tot_IFR_frac <- ifelse(prob_death_tot_IFR_frac*IFR_vec[x]>1,1,prob_death_tot_IFR_frac*IFR_vec[x])
 
   fit_spline_rt(data = BMJ_data_HighEst,
                 country = "Zambia", # here you still need to say what country the data is from so the right contact matrix is loaded
@@ -162,20 +164,20 @@ fit_l_IFR <- lapply(1:length(IFR_vec), function(x){
                 prob_non_severe_death_treatment = prob_death_tot_IFR_frac,
                 dur_get_ox_survive =Weighted_Durs_Hosp$Surv_Dur_Weighted,
                 dur_get_ox_die =Weighted_Durs_Hosp$Death_Dur_Weighted,
-                dur_R = Inf,
-                sero_df_start = as.Date(c("2020-07-04","2020-07-18")),
-                sero_df_end = as.Date(c("2020-07-27","2020-08-10")),
-                sero_df_pos = as.numeric(as.integer(c(0.021*2704, 0.106*1952))), # See SFig.3
-                sero_df_samples = c(2704,1952),
-                pcr_df_start = as.Date(c("2020-07-04")),
-                pcr_df_end = as.Date(c("2020-07-27")),
-                pcr_df_pos = as.integer(c(0.076*2990)), # See SFig.3
-                pcr_df_samples = c(2990)
+                dur_R = Inf
+                # sero_df_start = as.Date(c("2020-07-04","2020-07-18")),
+                # sero_df_end = as.Date(c("2020-07-27","2020-08-10")),
+                # sero_df_pos = as.numeric(as.integer(c(0.021*2704, 0.106*1952))), # See SFig.3
+                # sero_df_samples = c(2704,1952),
+                # pcr_df_start = as.Date(c("2020-07-04")),
+                # pcr_df_end = as.Date(c("2020-07-27")),
+                # pcr_df_pos = as.integer(c(0.076*2990)), # See SFig.3
+                # pcr_df_samples = c(2990)
   )
 })
 
 ## save these results
-# saveRDS(fit_l_IFR, file = "../Bonus Files/Fit_varying_IFR.rds")
+# saveRDS(fit_l_IFR, file = "../Bonus Files/Fit_varying_IFR_fit_only_to_deaths.rds")
 
 # estimate pcr/serology across data:
 sero_pcr_df_l_IFR <- lapply(X = fit_l_IFR, FUN = function(x){
@@ -263,7 +265,7 @@ dev.off()
 ### Plot LL varying IFR:
 ## Manipulate data for plotting
 # Melt and plot
-library(reshape2)
+
 sero_pcr_df_l_IFR <- lapply(seq(length(sero_pcr_df_l_IFR)), function(x){sero_pcr_df_l_IFR[[x]] %>% mutate(IFR_val = IFR_vec[[x]])})
 sero_pcr_df_l_IFR_com <- data.table::rbindlist(sero_pcr_df_l_IFR)
 
@@ -346,7 +348,8 @@ Braz_IFR <- rbind(c(0.00, 0.00, 0.03),
       c(17.37, 9.7, 31.12))
 
 ## Fit log linear model through the Brazeau data.
-plot(y = log(Braz_IFR[,1]), seq(2.5, 95, by = 5))
+plot(y = Braz_IFR[,1], seq(2.5, 95, by = 5), type = "l")
+plot(y = log10(Braz_IFR[,1]/100), seq(2.5, 95, by = 5), type = "l")
 IFR_Coefs <- lm(log(Braz_IFR[-1,1]) ~ seq(7.5, 95, by = 5))$coefficients
 
 

@@ -74,9 +74,12 @@ Zmb_p <-parameters_explicit_SEEIR("Zambia")
 prob_death_tot <- Zmb_p$prob_severe * Zmb_p$prob_severe_death_treatment +
   (1-Zmb_p$prob_severe) * Zmb_p$prob_non_severe_death_treatment
 saveRDS(prob_death_tot, "analysis/data/Code-generated-data/00_03_Tot_Prob_Death_By_Age_Zam.rds")
+
+# Calculate IFR for each age group:
+100*(Zmb_p$prob_hosp * prob_death_tot)
+# Calculate total IFR:
+sum(100*(Zmb_p$prob_hosp * prob_death_tot)* get_population("Madagascar")$n/sum(get_population("Madagascar")$n))
 ##############################################
-
-
 
 ##############################################
 ### 4. Zambia Weighted durations for
