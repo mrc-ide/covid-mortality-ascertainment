@@ -1,3 +1,5 @@
+### Incomplete ###
+
 ### BMJ reported 70 covid deaths from 362 tests conducted, from a pool of ~3600 total deaths over the period ###
 ### How do these numbers compare with the official statistics? ###
 rm(list =)
@@ -7,12 +9,12 @@ devtools::load_all(".")
 
 
 ### Official statistics from the period:
-df_off_BMJ_dates <- readRDS(file = "analysis/data/Code-generated-data/00_01b_Lusaka_Prov_Deaths_BMJ_Dates.rds")
+df_off_BMJ_dates <- readRDS(file = "analysis/data/Code-generated-data/00_01b_Lusaka_Prov_Deaths_Official_grouped_BMJ_Dates.rds")
 DeathTotalOff <- sum(df_off_fil$deaths)
 
 ## Estimate underreporting fraction using model
-df_off <- readRDS(file = "analysis/data/Code-generated-data/00_01_Lusaka_Prov_Deaths.rds")
-pop_st_lu <- readRDS("analysis/data/Code-generated-data/00_02_Lusaka_Prov_Pop_Struc_2020.rds")
+df_off <- readRDS(file = "analysis/data/Code-generated-data/00_01_Lusaka_Prov_Deaths_Official.rds")
+pop_st_lu <- readRDS("analysis/data/Code-generated-data/00_02_Lusaka_Prov_Pop_Struc_2020_opendataforafrica.rds")
 prob_death_tot_IFR_frac <- readRDS("analysis/data/Code-generated-data/00_03_Tot_Prob_Death_By_Age_Zam.rds")
 durations_death_survive <- readRDS("analysis/data/Code-generated-data/00_04_Weighted_durations_death_survive.rds")
 

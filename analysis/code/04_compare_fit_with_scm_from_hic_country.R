@@ -1,3 +1,4 @@
+### INCOMPLETE ###
 devtools::load_all(".")
 library(tidyverse)
 # library(gsheet)
@@ -7,7 +8,7 @@ library(gridExtra)
 
 ## Bring in Zambia data and filter Lusaka
 # df <- as.data.frame(gsheet2tbl('https://docs.google.com/spreadsheets/d/1qKPsUZivONw8n_ZDh9mle46n3DHcdk-pa89Ag4ihJeM/edit#gid=0'))
-df <- read.csv(file = "analysis/data/zambia_covid.csv")
+df <- read.csv(file = "analysis/data/Code-generated-data/00_01_Lusaka_Prov_Deaths_Official.rds")
 
 
 # Filter deaths for Lusaka Province until November 2020
@@ -25,7 +26,7 @@ missing_dates <- date_list[!date_list %in% data$date]
 data <-add_row(data, date = missing_dates, deaths = 0)
 
 # 2020 Age distribution for Lusaka Province from opendataforafrica (https://zambia.opendataforafrica.org/thrqjfb/population-and-demographic-projections-2011-2035?regionId=ZM-09)
-pop_st_lu <- c(549475,448008,379841,339600,317148,305521,271318,232188,172365,125531,75157,51883,35587,22219,14960,8570,10812)
+pop_st_lu <- readRDS("analysis/data/Code-generated-data/00_02_Lusaka_Prov_Pop_Struc_2020_opendataforafrica.rds")
 
 
 # Bulawayo contact matrix:

@@ -15,11 +15,11 @@ library(gridExtra)
 
 
 ## Bring in Lusaka Death data
-data <- readRDS("analysis/data/Code-generated-data/00_01_Lusaka_Prov_Deaths.rds")
+data <- readRDS("analysis/data/Code-generated-data/00_01_Lusaka_Prov_Deaths_Official.rds")
 # sum(data$deaths)
 
 ## Bring in population structure
-pop_st_lu <- readRDS("analysis/data/Code-generated-data/00_02_Lusaka_Prov_Pop_Struc_2020.rds")
+pop_st_lu <- readRDS("analysis/data/Code-generated-data/00_02_Lusaka_Prov_Pop_Struc_2020_opendataforafrica.rds")
 # sum(pop_st_lu)
 
 ## Initial run

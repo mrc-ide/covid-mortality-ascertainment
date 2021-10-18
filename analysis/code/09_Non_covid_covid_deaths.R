@@ -13,7 +13,7 @@ q1_b <- readRDS("analysis/data/Code-generated-data/00_05_BMJ_Data.rds")$q1_High_
 
 # P_pos: expected prevalence of covid.
 # Get this from estimated covid deaths:
-fit <- readRDS(file = "analysis/results/p_01_Official_Data_Lancet_est_rf_resonable.rds")
+fit <- readRDS(file = "../Bonus Files/p_01_Official_Data_Lancet_est_rf_resonable.rds")
 sero_pcr <- seroprev_df(fit)
 p_pos <- sero_pcr %>% filter(date>"2020-06-08" & date<"2020-09-28") %>%
   group_by(date) %>% summarise(pcr_perc_av = mean(pcr_perc)) %>%
@@ -30,4 +30,8 @@ r_maf <- (q1/p_pos - p_bg)/(1-p_bg)
 pop_lu_prov*r_maf*p_pos
 
 r_maf_b <- (q1_b/p_pos - p_bg)/(1-p_bg)
-pop_lu_prov*r_maf_b*p_pos
+True_Covid_Deaths <- pop_lu_prov*r_maf_b*p_pos
+
+# colnames(True_Covid_Deaths) <- "True covid deaths"
+# Tot_Deaths <- readRDS("analysis/data/Code-generated-data/00_05_BMJ_Data.rds")$TotEstCovDeathsLus_High_Est
+# data.frame("Total covid deaths" = Tot_Deaths, "True covid deaths" = True_Covid_Deaths)
