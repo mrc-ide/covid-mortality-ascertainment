@@ -31,9 +31,11 @@ fit_spline_rt <- function(data,
                           pcr_df_end = NULL,
                           pcr_df_pos = NULL,
                           pcr_df_samples = NULL,
+                          IFR_slope_bounds = NULL,
+                          IFR_multiplier_bounds = NULL,
 
                           ...) {
-
+# browser()
   ## -----------------------------------------------------------------------------
   ## Step 1 DATA CLEANING AND ORDERING
   ## -----------------------------------------------------------------------------
@@ -199,7 +201,7 @@ fit_spline_rt <- function(data,
     pars_max <- append(pars_max, c("rf"=reporting_fraction_bounds[3]))
     pars_discrete <- append(pars_discrete, c("rf"=FALSE))
   }
-# browser()
+
   if(!is.null(unlist(list(sero_df_start,sero_df_end,sero_df_pos,sero_df_samples)))){
     ## Check all values are correct
     if(any(lapply(list(sero_df_start,sero_df_end,sero_df_pos,sero_df_samples), length) != length(sero_df_start))){
@@ -214,11 +216,25 @@ fit_spline_rt <- function(data,
     pcr_df = data.frame(date_start = pcr_df_start, date_end = pcr_df_end, pcr_pos = pcr_df_pos, samples = pcr_df_samples)
     pars_obs <- append(pars_obs, c("pcr_df" = list(pcr_df)))
   }
+######################################################################
+  if(!is.null(IFR_slope_bounds)){
+    pars_init <- append(pars_init, c("IFR_slope"=IFR_slope_bounds[1]))
+    pars_min <- append(pars_min, c("IFR_slope"=IFR_slope_bounds[2]))
+    pars_max <- append(pars_max, c("IFR_slope"=IFR_slope_bounds[3]))
+    pars_discrete <- append(pars_discrete, c("IFR_slope"=FALSE))
+  }
 
+  if(!is.null(IFR_multiplier_bounds)){
+    pars_init <- append(pars_init, c("IFR_mult"=IFR_multiplier_bounds[1]))
+    pars_min <- append(pars_min, c("IFR_mult"=IFR_multiplier_bounds[2]))
+    pars_max <- append(pars_max, c("IFR_mult"=IFR_multiplier_bounds[3]))
+    pars_discrete <- append(pars_discrete, c("IFR_mult"=FALSE))
+  }
+#######################################################################
   # Covariance Matrix
   proposal_kernel <- diag(length(names(pars_init))) * 0.3
   rownames(proposal_kernel) <- colnames(proposal_kernel) <- names(pars_init)
-  proposal_kernel["start_date", "start_date"] <- 1.5
+  proposal_kernel["start_date", "start_date"] <- 1.5 ################### Should these be any different?
 
   # MCMC Functions - Prior and Likelihood Calculation
   logprior <- function(pars){
@@ -236,6 +252,20 @@ fit_spline_rt <- function(data,
         ret <- ret + dnorm(x = Rt_rws[[i]], mean = 0, sd = 0.2, log = TRUE)
       }
     }
+
+    if(!is.null(reporting_fraction_bounds)){
+      ret <- ret + dunif(pars[["rf"]], min = pars_min[["rf"]], max = pars_max[["rf"]]) #???+ dnorm(x = Rt_rws[[i]], mean = 0, sd = 0.2, log = TRUE) uniform dist?
+    }
+##################################################################
+    if(!is.null(IFR_slope_bounds)){
+      ret <- ret + dunif(pars[["IFR_slope"]], min = pars_min[["IFR_slope"]], max = pars_max[["IFR_slope"]]) #???+ dnorm(x = Rt_rws[[i]], mean = 0, sd = 0.2, log = TRUE) uniform dist?
+    }
+
+    if(!is.null(IFR_multiplier_bounds)){
+      ret <- ret + dunif(pars[["IFR_mult"]], min = pars_min[["IFR_mult"]], max = pars_max[["IFR_mult"]]) #???+ dnorm(x = Rt_rws[[i]], mean = 0, sd = 0.2, log = TRUE) uniform dist?
+    }
+###################################################################
+
     return(ret)
   }
 
@@ -252,8 +282,9 @@ fit_spline_rt <- function(data,
                        log_prior = logprior,
                        n_particles = 1,
                        steps_per_day = 1,
-                       log_likelihood = NULL,
+                       log_likelihood = calc_loglikelihood_IFR_var,
                        reporting_fraction = reporting_fraction,
+                       # squire_model = squire:::explicit_model(),
                        squire_model = squire:::deterministic_model(),
                        output_proposals = FALSE,
                        n_chains = n_chains,
@@ -281,7 +312,7 @@ fit_spline_rt <- function(data,
                        baseline_ICU_bed_capacity = icu_beds,
                        ...)
 
-
+# browser()
   ## remove things so they don't atke up so much memory when you save them :)
 
   # Add the prior
@@ -309,6 +340,8 @@ fit_spline_rt <- function(data,
 #'
 #' @param res Output of [[squire::pmcmc]]
 seroprev_df <- function(res){
+
+  if(is.null(res)){return(NULL)}
 
   # seroconversion data from brazeay report 34
   sero_sens <- res$pmcmc_results$inputs$pars_obs$sero_sens
@@ -363,6 +396,8 @@ seroprev_df <- function(res){
 
 }
 
-Summ_sero_pcr_data <- function(x){x %>% group_by(date) %>%
+Summ_sero_pcr_data <- function(x){
+  if(is.null(x)){return(NULL)}
+  x %>% group_by(date) %>%
     summarise(mean_pcr = mean(pcr_perc)*100, min_pcr = min(pcr_perc)*100, max_pcr = max(pcr_perc)*100,
               mean_sero = mean(sero_perc)*100, min_sero = min(sero_perc)*100, max_sero = max(sero_perc)*100)}

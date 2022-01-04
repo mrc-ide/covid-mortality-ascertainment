@@ -10,15 +10,15 @@ data <- readRDS(file = "analysis/data/Code-generated-data/00_01_Lusaka_Prov_Deat
 pop_st_lu <- readRDS("analysis/data/Code-generated-data/00_02_Lusaka_Prov_Pop_Struc_2020.rds") # See 02_zambia_lusaka_initial
 prob_death_tot_IFR_frac <- readRDS("analysis/data/Code-generated-data/00_03_Tot_Prob_Death_By_Age_Zam.rds") # See 02_zambia_lusaka_initial
 
-Sys.setenv("SQUIRE_PARALLEL_DEBUG" = TRUE)
+Sys.setenv("SQUIRE_PARALLEL_DEBUG" = T)
 fit <- fit_spline_rt(data = data,
                      country = "Zambia", # here you still need to say what country the data is from so the right contact matrix is loaded
                      population = pop_st_lu,
-                     reporting_fraction = 0.1,
-                     reporting_fraction_2 = 0.5,
-                     reporting_fraction_date_change = as.Date("2020-04-02"),
+                     # reporting_fraction = c(0.1, 0.5),
+                     reporting_fraction = c(0.1,0.5),
+                     reporting_fraction_time_change = as.Date("2020-04-10"),
                      # reporting_fraction_bounds = c(0.25,0.1,1),
-                     n_mcmc = 10000,
+                     n_mcmc = 100,
                      replicates = 100,
                      rw_duration = 14,
                      hosp_beds = 1e10,
@@ -29,4 +29,4 @@ fit <- fit_spline_rt(data = data,
                      dur_get_ox_die =10,
                      dur_R = Inf
 )
-
+fit$replicate_parameters

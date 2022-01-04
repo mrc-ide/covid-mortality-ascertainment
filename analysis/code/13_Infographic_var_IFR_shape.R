@@ -39,7 +39,7 @@ p1 <- ggplot(data = plot1_df_melt, aes(x = Age, y = value, group = variable, col
   #             fill = "darkred", alpha = 0.1)
 
 # Plot 2: Death curves
-fit_l_IFR_slope <- readRDS("../Bonus Files/fit_l_IFR_slope.RDS")
+fit_l_IFR_slope <- readRDS("../Bonus Files/fit_l_IFR_slope.rds")
 
 # Select the correct elements of the list
 IFR_vec <- c(0.4,0.6,0.8,0.9,1,1.1,1.2,1.4,1.6)
@@ -189,7 +189,28 @@ p4 <- ggplot(Deaths_Age_df, aes(x = Age)) +
   scale_linetype_manual(values = c(1,3,2,3,2)) + labs(color='', linetype = '') +
   geom_point(data = Est_Deaths, aes(x = Age, y = Deaths), size = 0.5, alpha = 1)
 
+Deaths_Age_df_2 <- Deaths_Age_df %>% filter(IFR %in% c("IFR_1_Slope1","IFR_1_Slope0.8","IFR_1_Slope1.2"))
 
+
+p4b <- ggplot(Deaths_Age_df_2, aes(x = Age)) +
+  geom_point(data = Est_Deaths, aes(x = Age, y = Deaths), size = 0.75, alpha = 1)
+
+p4c <- ggplot(Deaths_Age_df_2 %>% filter(IFR %in% c("IFR_1_Slope1")), aes(x = Age)) +
+  geom_line(aes(y = Deaths, group = IFR, col = IFR)) +
+  scale_colour_manual(values = c("black","darkred","darkblue"), labels = c("Brazeau et al.", "0.8 x Slope", "1.2 x Slope")) +
+  # scale_linetype_manual(labels = c("Brazeau et al.", "0.8 x Slope", "1.2 x Slope")) +
+  labs(color='') +
+  geom_point(data = Est_Deaths, aes(x = Age, y = Deaths), size = 0.5, alpha = 1)
+
+
+p4d <- ggplot(Deaths_Age_df_2, aes(x = Age)) +
+  geom_line(aes(y = Deaths, group = IFR, col = IFR)) +
+  scale_colour_manual(values = c("black","darkred","darkblue"), labels = c("Brazeau et al.", "0.8 x Slope", "1.2 x Slope")) +
+  # scale_linetype_manual(labels = c("Brazeau et al.", "0.8 x Slope", "1.2 x Slope")) +
+  labs(color='') +
+  geom_point(data = Est_Deaths, aes(x = Age, y = Deaths), size = 0.5, alpha = 1)
+
+cowplot::plot_grid(p4b,p4c,p4d, nrow = 1)
 
 
 pdf("analysis/figures/13_Infographic.pdf", width = 8, height = 6)

@@ -1,0 +1,10 @@
+Data dictionary
+subjectid -- subjectid
+sampleid -- sampleid
+deceased_date -- Date of death YYYY-MM-DD format
+age_death -- Age of death in years
+gender-- Sex of decedent 1 = Female 2 = Male
+N1_CT_1 -- Ct of N1 primer first test of sample
+N1_CT_2 -- Ct of N2 primer first test of sample
+N2_CT_1 -- Ct of N1 primer second test of sample
+N2_CT_2 -- Ct of N2 primer second test of sample
