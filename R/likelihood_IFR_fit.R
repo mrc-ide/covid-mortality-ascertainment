@@ -509,13 +509,17 @@ run_deterministic_comparison_IFR_var <- function(data,
 ll_nbinom_IFR_var <- function(data, model, phi, k, exp_noise, phi_change) {
 # browser()
   if(length(phi)==2 & !is.null(phi_change)){
-    mu <- c(phi[1] * model[1:(phi_change-1)], phi[2] * model[phi_change:length(model)]) + rexp(length(model), rate = exp_noise)
+    mu <- c(phi[1] * model[1:(phi_change-1)] + rexp(length(model), rate = exp_noise), phi[2] * model[phi_change:length(model)]) + rexp(length(model), rate = exp_noise)
   } else {
     mu <- phi * model + rexp(length(model), rate = exp_noise)
   }
 
   mu <- model
   dnbinom(round(data), k, mu = mu, log = TRUE)
+
+  # mu <- phi * model + rexp(length(model), rate = exp_noise)
+  # dnbinom(data, k, mu = mu, log = TRUE)
+
   # cbind(data, mu,   dnbinom(data, k, mu = mu, log = TRUE))
 
   # Let's take the modelled data and compare to the original data
