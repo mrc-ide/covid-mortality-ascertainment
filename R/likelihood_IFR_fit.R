@@ -517,6 +517,8 @@ ll_nbinom_IFR_var <- function(data, model, phi, k, exp_noise, phi_change) {
   mu <- model
   dnbinom(round(data), k, mu = mu, log = TRUE)
 
+  # dhyper(x = 2, m = 50, n = 40, k = 4)
+
   # mu <- phi * model + rexp(length(model), rate = exp_noise)
   # dnbinom(data, k, mu = mu, log = TRUE)
 

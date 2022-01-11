@@ -12,6 +12,7 @@
 #' @export
 #'
 fit_spline_rt <- function(data,
+                          combined_data,
                           country,
                           population,
                           reporting_fraction=1,
@@ -186,7 +187,7 @@ fit_spline_rt <- function(data,
   pars_discrete = list('start_date' = TRUE, 'R0' = FALSE, 'Meff' = FALSE,
                        'Meff_pl' = FALSE, "Rt_shift" = FALSE, "Rt_shift_scale" = FALSE)
   pars_obs = list(phi_cases = 1, k_cases = 2, phi_death = 1, k_death = 2, exp_noise = 1e6,
-                  sero_det = sero_det, pcr_det = pcr_det)
+                  sero_det = sero_det, pcr_det = pcr_det, combined_data = combined_data)
 
   # add in the spline list
   pars_init <- append(pars_init, pars_init_rw)
@@ -234,7 +235,7 @@ fit_spline_rt <- function(data,
   # Covariance Matrix
   proposal_kernel <- diag(length(names(pars_init))) * 0.3
   rownames(proposal_kernel) <- colnames(proposal_kernel) <- names(pars_init)
-  proposal_kernel["start_date", "start_date"] <- 1.5 ################### Should these be any different?
+  proposal_kernel["start_date", "start_date"] <- 1.5
 
   # MCMC Functions - Prior and Likelihood Calculation
   logprior <- function(pars){
@@ -275,14 +276,14 @@ fit_spline_rt <- function(data,
 
   # mixing matrix - assume is same as country as whole
   mix_mat <- squire::get_mixing_matrix(country)
-
+# browser()
   # run the pmcmc
   res <- squire::pmcmc(data = data,
                        n_mcmc = n_mcmc,
                        log_prior = logprior,
                        n_particles = 1,
                        steps_per_day = 1,
-                       log_likelihood = calc_loglikelihood_IFR_var,
+                       log_likelihood = calc_loglikelihood_Hyper_Geo_Lik,
                        reporting_fraction = reporting_fraction,
                        # squire_model = squire:::explicit_model(),
                        squire_model = squire:::deterministic_model(),
@@ -401,3 +402,15 @@ Summ_sero_pcr_data <- function(x){
   x %>% group_by(date) %>%
     summarise(mean_pcr = mean(pcr_perc)*100, min_pcr = min(pcr_perc)*100, max_pcr = max(pcr_perc)*100,
               mean_sero = mean(sero_perc)*100, min_sero = min(sero_perc)*100, max_sero = max(sero_perc)*100)}
+
+# pcr_at_date <- function(date, infections, det, dates, N) {
+#
+#   di <- which(dates == date)
+#   if(length(di) > 0) {
+#     to_sum <- tail(infections[seq_len(di)], length(det))
+#     min(sum(rev(to_sum)*head(det, length(to_sum)), na.rm=TRUE)/N, 0.99)
+#   } else {
+#     0
+#   }
+#
+# }

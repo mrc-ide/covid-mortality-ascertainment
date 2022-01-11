@@ -273,14 +273,41 @@ df_MPM <- df_MPM %>% filter(date >= "2020-06-15" & date <= "2020-11-01") %>%
   mutate(Either_Test_Pos = ifelse(Test1_45==T | Test2_45==T, T, F),
          Both_Tests_Pos = ifelse(Test1_45==T & Test2_45==T, T, F),
          Either_Test_Pos_40 = ifelse(Test1_40==T | Test2_40==T, T, F),
-         Both_Tests_Pos_40 = ifelse(Test1_40==T & Test2_40==T, T, F)) %>%
+         Both_Tests_Pos_40 = ifelse(Test1_40==T & Test2_40==T, T, F))
+
+df_MPM_Date <- df_MPM %>%
   group_by(date) %>% summarise(sampled_deaths = length(N1_CT_1),
                                CT_45_Either = sum(Either_Test_Pos, na.rm=T),
                                CT_45_Both = sum(Both_Tests_Pos, na.rm=T),
                                CT_40_Either = sum(Either_Test_Pos_40, na.rm=T),
                                CT_40_Both = sum(Both_Tests_Pos_40, na.rm=T)) %>%
   mutate(PCR_Prev_inc = CT_45_Either/sampled_deaths,
-         PCR_Prev_str = CT_40_Either/sampled_deaths)
+         PCR_Prev_str = CT_40_Either/sampled_deaths) %>%
+  complete(date, fill = list(sampled_deaths = 0, CT_45_Either = 0, CT_45_Both = 0, CT_40_Either = 0, CT_40_Both = 0))
+
+
+df_MPM_Date_age <- df_MPM %>% mutate(Age_group = cut(as.numeric(age_death), c(seq(0,80,by = 5),Inf), right = F, labels = F)) %>%
+  group_by(date,Age_group) %>% summarise(sampled_deaths = length(N1_CT_1),
+                               CT_45_Either = sum(Either_Test_Pos, na.rm=T),
+                               CT_45_Both = sum(Both_Tests_Pos, na.rm=T),
+                               CT_40_Either = sum(Either_Test_Pos_40, na.rm=T),
+                               CT_40_Both = sum(Both_Tests_Pos_40, na.rm=T)) %>%
+  ungroup() %>%
+  complete(date, Age_group, fill = list(sampled_deaths = 0, CT_45_Either = 0, CT_45_Both = 0, CT_40_Either = 0, CT_40_Both = 0))
+
+# date_list_Mort_sam <- seq(min(df_MPM$date), max(df_MPM$date), by = 1)
+# missing_dates_Mort_sam <- date_list_Mort_sam[!date_list_Mort_sam %in% df_MPM$date] # Add missing dates with 0 deaths
+
+# df_MPM <- add_row(df_MPM, date = missing_dates_Mort_sam,
+#                   sampled_deaths = 0,
+#                   CT_45_Either = 0,
+#                   CT_45_Both = 0,
+#                   CT_40_Either = 0,
+#                   CT_40_Both = 0,
+#                   PCR_Prev_inc = 0,
+#                   PCR_Prev_str = 0
+#                   ) %>% arrange(date)
+
 
 df_MPM_Week <- df_MPM %>% select(date, sampled_deaths, CT_45_Either, CT_40_Either) %>%
   mutate(week = cut.Date(date, breaks = "1 week", labels = FALSE)) %>%
@@ -294,6 +321,28 @@ df_MPM_Week <- df_MPM %>% select(date, sampled_deaths, CT_45_Either, CT_40_Eithe
   )
 
 saveRDS(object = df_MPM, file = "analysis/data/Code-generated-data/00_06_Mortuary_post-mortem.rds")
+saveRDS(object = df_MPM_Date_age, file = "analysis/data/Code-generated-data/00_06_Mortuary_post-mortem_age.rds")
+
+
+p1 <- ggplot(df_MPM, aes(x = date, y = sampled_deaths)) + geom_point(colour = "black") +
+  xlab("Date") + ylab("Sampled deaths in mortuary") + ylim(0,8)
+  # geom_point(aes(y = PCR_Prev_str, colour = "CT<40")) +
+  # labs(color = "Test Result") +
+  # scale_color_manual(values = c("CT<40" = "black", "CT<45" = "blue"))
+
+# p2 <- ggplot(df_MPM, aes(x = date, y = CT_45_Either)) + geom_point(aes(colour = "CT<45")) +
+#   xlab("Date") + ylab("+ve tests in sample") +
+#   geom_point(aes(y = CT_40_Either, colour = "CT<40")) +
+#   labs(color = "Test Result") +
+#   scale_color_manual(values = c("CT<40" = "black", "CT<45" = "blue"))  + ylim(0,8)
+
+
+# ggplot(df_MPM, aes(x = date, y = PCR_Prev_inc)) + geom_point(aes(colour = "CT<45")) +
+#   xlab("Week") + ylab("COVID-19 +ve deaths in mortuary sample (%)") +
+#   geom_point(aes(y = PCR_Prev_str, colour = "CT<40")) +
+#   labs(color = "Test Result") +
+#   scale_color_manual(values = c("CT<40" = "black", "CT<45" = "blue"))
+
 
 # ggplot(df_MPM_Week, aes(x = week, y = PCR_Prev_inc)) + geom_point(aes(colour = "CT<45")) +
 #   xlab("Week") + ylab("COVID-19 +ve deaths in mortuary sample (%)") +
@@ -314,10 +363,19 @@ saveRDS(object = df_MPM, file = "analysis/data/Code-generated-data/00_06_Mortuar
 UTH_Mortality_Total <- read.csv(file = "analysis/data/raw/BMJ_UTH_excess_mortality/mortuary_records.csv")
 UTH_Mortality_Total <- UTH_Mortality_Total %>% mutate(date = as.Date(dod, "%m/%d/%y"))
 
+UTH_deaths_by_age <- UTH_Mortality_Total %>% filter(dod != ".") %>%
+  filter(date >= "2020-06-15" & date < "2020-10-05", age_years !=".") %>%
+  mutate(Age_group = cut(as.numeric(age_years), c(seq(0,80,by = 5),Inf), right = F, labels = F)) %>%
+  group_by(date,Age_group) %>% summarise(total_deaths = length(date)) %>%
+  ungroup %>%
+  complete(date, Age_group, fill = list(total_deaths = 0))
+  # filter(date >= "2020-06-15" & date <= "2020-11-01")
+
 UTH_deaths_by_date <- UTH_Mortality_Total %>% filter(dod != ".") %>%
   group_by(date) %>% summarise(total_deaths = length(date)) %>%
   # filter(date >= "2020-06-15" & date <= "2020-11-01")
   filter(date >= "2020-06-15" & date <= "2020-10-05")
+
 
 date_list_Mort <- seq(min(UTH_deaths_by_date$date), max(UTH_deaths_by_date$date), by = 1)
 missing_dates_Mort <- date_list_Mort[!date_list_Mort %in% UTH_deaths_by_date$date] # Add missing dates with 0 deaths
@@ -329,15 +387,16 @@ UTH_deaths_by_week <- UTH_deaths_by_date %>%
   group_by(week) %>%
   summarise(total_deaths = sum(total_deaths))
 
-# ggplot(UTH_deaths_by_date, aes(x = date, y = total_deaths)) + geom_point(colour = "black") +
-#   xlab("Date") + ylab("Total deaths registered in UTH mortuary") +
-#   ylim(0,100)
+p2 <- ggplot(UTH_deaths_by_date, aes(x = date, y = total_deaths)) + geom_point(colour = "black") +
+  xlab("Date") + ylab("Total deaths registered in UTH mortuary") +
+  ylim(0,100)
 
 # ggplot(UTH_deaths_by_week, aes(x = week, y = total_deaths)) + geom_point(colour = "black") +
 #   xlab("Week") + ylab("Total deaths registered in UTH mortuary") +
 #   ylim(0,500)
 
 saveRDS(object = UTH_deaths_by_date, file = "analysis/data/Code-generated-data/00_07_Mortuary_data.rds")
+saveRDS(object = UTH_deaths_by_age, file = "analysis/data/Code-generated-data/00_07_Mortuary_data_age.rds")
 
 ##############################################
 ##############################################
@@ -351,16 +410,21 @@ saveRDS(object = UTH_deaths_by_date, file = "analysis/data/Code-generated-data/0
 
 MPM_mortuary_combined <- merge(df_MPM, UTH_deaths_by_date, by.x = "date", all = T) %>%
   mutate(Est_Deaths_inc = total_deaths * PCR_Prev_inc,
-         Est_Deaths_str = total_deaths * PCR_Prev_str) %>%
+         Est_Deaths_str = total_deaths * PCR_Prev_str,
+         Sampling_effort = sampled_deaths/total_deaths) %>%
   filter(date >= "2020-06-15" & date <= "2020-10-02") %>%
-  select(date, Est_Deaths_inc, Est_Deaths_str) %>%
-  replace_na(list(Est_Deaths_inc = 0, Est_Deaths_str = 0))
+  select(date, Est_Deaths_inc, Est_Deaths_str, Sampling_effort, total_deaths, sampled_deaths) %>%
+  replace_na(list(Est_Deaths_inc = 0, Est_Deaths_str = 0, Sampling_effort = 0, sampled_deaths = 0)) #%>%
+  # mutate(Sampling_effort = ifelse(is.infinite(Sampling_effort), 10, Sampling_effort))
 
 MPM_mortuary_combined_week <- MPM_mortuary_combined %>%
   mutate(week = cut.Date(date, breaks = "1 week", labels = FALSE)) %>%
   group_by(week) %>%
   summarise(Est_Deaths_inc = sum(Est_Deaths_inc),
             Est_Deaths_str = sum(Est_Deaths_str))
+
+p3 <- ggplot(MPM_mortuary_combined, aes(x = date, y = Sampling_effort)) + geom_point(colour = "black") +
+  xlab("Date") + ylab("Deaths sampled (%)")
 
 # ggplot(MPM_mortuary_combined_week, aes(x = week, y = Est_Deaths_inc/0.8)) + geom_point(aes(colour = "CT<45")) +
 #   xlab("Week") + ylab("Estimated COVID-19 +ve deaths in Lusaka") +
