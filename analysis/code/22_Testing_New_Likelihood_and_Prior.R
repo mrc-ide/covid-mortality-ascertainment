@@ -1,10 +1,14 @@
 ## Testing the new likelihood function:
-devtools::load_all(".")
+# devtools::install_github("mrc-ide/cma")
+devtools::install()
+devtools::load_all()
 library(squire)
 library(dplyr)
 library(tidyr)
 library(reshape2)
 library(ggplot2)
+library(cma)
+# devtools::load_all(".")
 # bring my data in:
 PMP_data_age <- readRDS("analysis/data/Code-generated-data/00_06_Mortuary_post-mortem_age.rds") %>% select(date,Age_group,sampled_deaths,CT_45_Either,CT_40_Either)
 Mort_data_age <- readRDS("analysis/data/Code-generated-data/00_07_Mortuary_data_age.rds")
@@ -34,34 +38,61 @@ Weighted_Durs_Hosp <- readRDS("analysis/data/Code-generated-data/00_04_Weighted_
 Lancet_Data <- readRDS("analysis/data/Code-generated-data/00_10_Lancet_Data.rds")
 deaths_age <- readRDS("analysis/data/Code-generated-data/00_03_IFR_values_Brazeau.rds")
 
-Sys.setenv(SQUIRE_PARALLEL_DEBUG = "TRUE")
-fit_BMJ_mort <- fit_spline_rt(data = data,
-                              combined_data = Combined_Weeks,
-                              country = "Zambia", # here you still need to say what country the data is from so the right contact matrix is loaded
-                              population = Lus_Pop_Age,
-                              reporting_fraction = 1,
-                              # reporting_fraction_bounds = c(0.25,0.1,1),
-                              n_mcmc = 10000,
-                              replicates = 100,
-                              rw_duration = 14,
-                              hosp_beds = 1e10,
-                              icu_beds = 1e10,
-                              prob_severe = rep(0,17),
-                              prob_non_severe_death_treatment = deaths_age$Prob_death_when_hospitalised,
-                              dur_get_ox_survive = Weighted_Durs_Hosp$Surv_Dur_Weighted,
-                              dur_get_ox_die = Weighted_Durs_Hosp$Death_Dur_Weighted,
-                              dur_R = Inf
-                              # sero_df_start = as.Date(c("2020-07-04")),#,"2020-07-18")),
-                              # sero_df_end = as.Date(c("2020-07-27")),#,"2020-08-10")),
-                              # sero_df_pos = as.numeric(as.integer(c(Lancet_Data$Sero_prev["val"]/100*Lancet_Data$Sero_prev["n"]))),#, 0.106*1952))), # See Table 2
-                              # sero_df_samples = Lancet_Data$Sero_prev["n"],#,1952),
-                              # pcr_df_start = as.Date(c("2020-07-04")),
-                              # pcr_df_end = as.Date(c("2020-07-27")),
-                              # pcr_df_pos = as.integer(c(Lancet_Data$PCR_prev["val"]/100*Lancet_Data$PCR_prev["n"])), # See Table 2
-                              # pcr_df_samples = Lancet_Data$PCR_prev["n"]
-                              # IFR_slope_bounds = c(1,0.5,1.5),
-                              # IFR_multiplier_bounds = c(1,0.4,1.5)
-)
+
+IFR_mat <- readRDS("analysis/data/Code-generated-data/IFR_mat_Ints2.rds")
+
+## Now using the Slopes and Intercepts, I need to calculate specific IFR by age groups
+Age_groups <- seq(2.5,82.5, by = 5)
+IFR_Age_var_slope_int <- t(apply(IFR_mat, 1, function(x){
+  exp(Age_groups * x["Slope_abs"] + x["Int_abs"])
+}))
+
+
+# t(IFR_Age_var_slope_int)/(100*parameters_explicit_SEEIR("Zambia")$prob_hosp)
+# max(IFR_Age_var_slope_int[81,]/(100*parameters_explicit_SEEIR("Zambia")$prob_hosp))
+IFR_vals_1 <- apply(IFR_Age_var_slope_int, MARGIN = 1, FUN = function(x){x/(100*squire::parameters_explicit_SEEIR("Zambia")$prob_hosp)
+  return(max(x/(100*squire::parameters_explicit_SEEIR("Zambia")$prob_hosp)))})>1
+IFR_Age_var_slope_int_fil <- IFR_Age_var_slope_int[!IFR_vals_1,]
+IFR_mat_fil <- IFR_mat[!IFR_vals_1,]
+
+
+fit_l_IFR_slope <- lapply(1:nrow(IFR_Age_var_slope_int_fil), function(x){
+
+  prob_death_tot <- IFR_Age_var_slope_int_fil[x,]/(100*squire::parameters_explicit_SEEIR("Zambia")$prob_hosp)
+  # browser()
+
+  print(x)
+  # Sys.setenv(SQUIRE_PARALLEL_DEBUG = "TRUE")
+  Sys.setenv(SQUIRE_PARALLEL_DEBUG = "")
+  fit_BMJ_mort <- fit_spline_rt(data = data,
+                                combined_data = Combined_Weeks,
+                                country = "Zambia", # here you still need to say what country the data is from so the right contact matrix is loaded
+                                population = Lus_Pop_Age,
+                                reporting_fraction = 1,
+                                # reporting_fraction_bounds = c(0.25,0.1,1),
+                                n_mcmc = 1000,
+                                replicates = 100,
+                                rw_duration = 14,
+                                hosp_beds = 1e10,
+                                icu_beds = 1e10,
+                                prob_severe = rep(0,17),
+                                prob_non_severe_death_treatment = deaths_age$Prob_death_when_hospitalised,
+                                # prob_non_severe_death_treatment = prob_death_tot,
+                                dur_get_ox_survive = Weighted_Durs_Hosp$Surv_Dur_Weighted,
+                                dur_get_ox_die = Weighted_Durs_Hosp$Death_Dur_Weighted,
+                                dur_R = Inf
+                                # sero_df_start = as.Date(c("2020-07-04")),#,"2020-07-18")),
+                                # sero_df_end = as.Date(c("2020-07-27")),#,"2020-08-10")),
+                                # sero_df_pos = as.numeric(as.integer(c(Lancet_Data$Sero_prev["val"]/100*Lancet_Data$Sero_prev["n"]))),#, 0.106*1952))), # See Table 2
+                                # sero_df_samples = Lancet_Data$Sero_prev["n"],#,1952),
+                                # pcr_df_start = as.Date(c("2020-07-04")),
+                                # pcr_df_end = as.Date(c("2020-07-27")),
+                                # pcr_df_pos = as.integer(c(Lancet_Data$PCR_prev["val"]/100*Lancet_Data$PCR_prev["n"])), # See Table 2
+                                # pcr_df_samples = Lancet_Data$PCR_prev["n"]
+                                # IFR_slope_bounds = c(1,0.5,1.5),
+                                # IFR_multiplier_bounds = c(1,0.4,1.5)
+  )
+  })
 
 # SavedBit <-fit_BMJ_mort
 

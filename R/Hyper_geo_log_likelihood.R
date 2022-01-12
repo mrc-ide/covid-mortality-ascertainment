@@ -5,7 +5,7 @@ calc_loglikelihood_Hyper_Geo_Lik <- function(pars, data, squire_model, model_par
                                        pars_obs, n_particles,
                                        forecast_days = 0, return = "ll",
                                        Rt_args,
-                                       interventions,...) {
+                                       interventions,...) {#print("Made it here")
 
   #----------------..
   # specify particle setup
@@ -295,6 +295,7 @@ run_deterministic_comparison_HYPGEO <- function(data,
 
   ### Actual data for comparison
   Comb_data <- obs_params$combined_data
+  pcr_det <- obs_params$pcr_det
 
   ### Get model data for comparison
   Dates_needed <- c(unique(Comb_data$date)-1,tail(unique(Comb_data$date)-1,1)+7)  ## These are the day ends I want.
@@ -307,7 +308,18 @@ run_deterministic_comparison_HYPGEO <- function(data,
   Mod_Deaths_Age <- apply(out[Days_for_comparison_b,index$D], 2, diff)
   colnames(Mod_Deaths_Age) <- 1:17
   Mod_Deaths_Age <- Mod_Deaths_Age %>%
-    melt(value.name = "Ds", varnames= c("Week_num","Age_gr")) # 16 time periods, 17 age groups.
+    reshape2::melt(value.name = "Ds", varnames= c("Week_num","Age_gr")) # 16 time periods, 17 age groups.
+
+  roll_func <- function(x, det) {
+    l <- length(det)
+    ret <- rep(0, length(x))
+    for(i in seq_along(ret)) {
+      to_sum <- tail(x[seq_len(i)], length(det))
+      ret[i] <- sum(rev(to_sum)*head(det, length(to_sum)))
+    }
+    return(ret)
+  }
+
 
   ### Model PCR: Number of Infections
   pcr_pos <- apply(out[,index$S],2,function(x){
@@ -320,7 +332,7 @@ run_deterministic_comparison_HYPGEO <- function(data,
 
   pcr_perc <- pcr_pos[Days_for_comparison[-1]-3,] # This could be -3 or -4 to get Weds or Thurs.
   colnames(pcr_perc) <- 1:17 # Reshape
-  pcr_perc <- pcr_perc %>% melt(value.name = "pcr_perc", varnames= c("Week_num","Age_gr")) # 16 time periods, 17 age groups.
+  pcr_perc <- pcr_perc %>% reshape2::melt(value.name = "pcr_perc", varnames= c("Week_num","Age_gr")) # 16 time periods, 17 age groups.
 
 
   ################################################
@@ -328,9 +340,9 @@ run_deterministic_comparison_HYPGEO <- function(data,
 
   # calculate ll for deaths
   frac_mort <- 0.8 # Mortuary captures 80% of deaths in Lusaka
-  Mod_Deaths_Age <- Mod_Deaths_Age %>% rename(age_group = "Age_gr", week_no = "Week_num")
-  Comb_data <- Comb_data %>% rename(age_group = "Age_group", week_no = "Week_gr")
-  pcr_perc <- pcr_perc %>% rename(age_group = "Age_gr", week_no = "Week_num")
+  Mod_Deaths_Age <- Mod_Deaths_Age %>% dplyr::rename(age_group = "Age_gr", week_no = "Week_num")
+  Comb_data <- Comb_data %>% dplyr::rename(age_group = "Age_group", week_no = "Week_gr")
+  pcr_perc <- pcr_perc %>% dplyr::rename(age_group = "Age_gr", week_no = "Week_num")
 
   Mod_Deaths_Age <- Mod_Deaths_Age %>% merge(x = ., y = Comb_data) %>%
     merge(x = ., y = pcr_perc) %>%
