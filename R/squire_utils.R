@@ -41,7 +41,7 @@ fit_spline_rt <- function(data,
   ## -----------------------------------------------------------------------------
   ## Step 1 DATA CLEANING AND ORDERING
   ## -----------------------------------------------------------------------------
-return("Try here")
+
   # order data
   data <- data[order(data$date),]
   data$date <- as.Date(data$date)
@@ -277,14 +277,14 @@ return("Try here")
 
   # mixing matrix - assume is same as country as whole
   mix_mat <- squire::get_mixing_matrix(country)
-return("Made it to the first place")
+
   # run the pmcmc
   res <- squire::pmcmc(data = data,
                        n_mcmc = n_mcmc,
                        log_prior = logprior,
                        n_particles = 1,
                        steps_per_day = 1,
-                       log_likelihood = calc_loglikelihood_Hyper_Geo_Lik,
+                       # log_likelihood = calc_loglikelihood_Hyper_Geo_Lik,
                        reporting_fraction = reporting_fraction,
                        # squire_model = squire:::explicit_model(),
                        squire_model = squire:::deterministic_model(),
