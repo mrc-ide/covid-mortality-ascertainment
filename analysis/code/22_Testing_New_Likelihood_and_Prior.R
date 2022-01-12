@@ -56,6 +56,18 @@ IFR_Age_var_slope_int_fil <- IFR_Age_var_slope_int[!IFR_vals_1,]
 IFR_mat_fil <- IFR_mat[!IFR_vals_1,]
 
 
+Test <- fit_spline_rt(data = data,
+                      country = "Zambia", # here you still need to say what country the data is from so the right contact matrix is loaded
+                      population = Lus_Pop_Age,
+                      reporting_fraction = 0.1,
+                      n_mcmc = 100,
+                      replicates = 10,
+                      rw_duration = 14,
+                      hosp_beds = 1e10,
+                      icu_beds = 1e10)
+
+
+
 fit_l_IFR_slope <- lapply(1:nrow(IFR_Age_var_slope_int_fil), function(x){
 
   prob_death_tot <- IFR_Age_var_slope_int_fil[x,]/(100*squire::parameters_explicit_SEEIR("Zambia")$prob_hosp)

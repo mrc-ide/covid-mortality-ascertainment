@@ -5,7 +5,7 @@ calc_loglikelihood_Hyper_Geo_Lik <- function(pars, data, squire_model, model_par
                                        pars_obs, n_particles,
                                        forecast_days = 0, return = "ll",
                                        Rt_args,
-                                       interventions,...) {#print("Made it here")
+                                       interventions,...) {
 
   #----------------..
   # specify particle setup
@@ -299,7 +299,7 @@ run_deterministic_comparison_HYPGEO <- function(data,
 
   ### Get model data for comparison
   Dates_needed <- c(unique(Comb_data$date)-1,tail(unique(Comb_data$date)-1,1)+7)  ## These are the day ends I want.
-  Date_sequence <- seq(from = min(data$date)+1, to = max(Comb_data$date)+7, by = 1) ## Create a date sequence to encompass everything, starting with day 1
+  Date_sequence <- seq(from = min(as.Date(data$date))+1, to = as.Date(max(as.Date(Comb_data$date)))+7, by = 1) ## Create a date sequence to encompass everything, starting with day 1
   Days_for_comparison <- seq_along(Date_sequence)[Date_sequence %in% Dates_needed] # Day 1 is 2020-05-28: Day start = 1, Day end = 0/29? I need 2020-05-14 day end
   Days_for_comparison_b <- ifelse(Days_for_comparison>max(data$day_end),max(data$day_end),Days_for_comparison) # If any days are past the available days, lower the highest to the max day
 

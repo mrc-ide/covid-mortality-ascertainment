@@ -7,12 +7,12 @@
 #' @param icu_beds ICU Beds
 #' @param rw_duration Random Walk/Spline Duration. Default = 14 days
 #' @param reporting_fraction_bounds Region to vary reporting fraction
+#' @param combined_data Data to fit to
 #'
 #' @return Model fit from [squire:::pmcmc]
 #' @export
 #'
 fit_spline_rt <- function(data,
-                          combined_data = NULL,
                           country,
                           population,
                           reporting_fraction=1,
@@ -34,13 +34,14 @@ fit_spline_rt <- function(data,
                           pcr_df_samples = NULL,
                           IFR_slope_bounds = NULL,
                           IFR_multiplier_bounds = NULL,
+                          combined_data = NULL,
 
                           ...) {
 # browser()
   ## -----------------------------------------------------------------------------
   ## Step 1 DATA CLEANING AND ORDERING
   ## -----------------------------------------------------------------------------
-
+return("Try here")
   # order data
   data <- data[order(data$date),]
   data$date <- as.Date(data$date)
@@ -276,7 +277,7 @@ fit_spline_rt <- function(data,
 
   # mixing matrix - assume is same as country as whole
   mix_mat <- squire::get_mixing_matrix(country)
-# browser()
+return("Made it to the first place")
   # run the pmcmc
   res <- squire::pmcmc(data = data,
                        n_mcmc = n_mcmc,
