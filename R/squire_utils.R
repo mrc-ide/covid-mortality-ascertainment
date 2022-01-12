@@ -12,7 +12,7 @@
 #' @export
 #'
 fit_spline_rt <- function(data,
-                          combined_data,
+                          combined_data = NULL,
                           country,
                           population,
                           reporting_fraction=1,
