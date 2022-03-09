@@ -12,7 +12,7 @@ data <- readRDS(file = "analysis/data/Code-generated-data/00_01_Lusaka_Prov_Deat
 pop_st_lu <- readRDS("analysis/data/Code-generated-data/00_02_Lusaka_Prov_Pop_Struc_2020.rds") # See 00 data code
 prob_death_tot_IFR_frac <- readRDS("analysis/data/Code-generated-data/00_03_Tot_Prob_Death_By_Age_Zam.rds") # See 00 data code
 Weighted_Durs_Hosp <- readRDS("analysis/data/Code-generated-data/00_04_Weighted_durations_death_survive.rds") # See 00 data code
-Lancet_Data <- readRDS("analysis/data/Code-generated-data/00_07_Lancet_Data.rds") # See 00 data code
+Lancet_Data <- readRDS("analysis/data/Code-generated-data/00_10_Lancet_Data.rds") # See 00 data code
 
 
 fit_1 <- fit_spline_rt(data = data,

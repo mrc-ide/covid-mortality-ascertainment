@@ -8,12 +8,34 @@ fit_spline_rt(
   data,
   country,
   population,
-  reporting_fraction,
+  baseline_contact_matrix = baseline_contact_matrix,
+  reporting_fraction = 1,
+  reporting_fraction_bounds = NULL,
   n_mcmc = 10000,
   replicates = 100,
   rw_duration = 14,
   hosp_beds = 1e+10,
-  icu_beds = 1e+10
+  icu_beds = 1e+10,
+  sero_sens = 0.9,
+  sero_df_start = NULL,
+  sero_df_end = NULL,
+  sero_df_pos = NULL,
+  sero_df_samples = NULL,
+  pcr_sens = 0.95,
+  pcr_df_start = NULL,
+  pcr_df_end = NULL,
+  pcr_df_pos = NULL,
+  pcr_df_samples = NULL,
+  comb_df = NULL,
+  IFR_slope_bounds = NULL,
+  IFR_multiplier_bounds = NULL,
+  combined_data = NULL,
+  combined_data_week = NULL,
+  log_likelihood = NULL,
+  lld = NULL,
+  k_death = 2,
+  HypGeoWeights = NULL,
+  ...
 )
 }
 \arguments{
@@ -28,9 +50,15 @@ unprovided. Either \code{country} or \code{population} and
 \item{population}{Population vector (for each age group). Default = NULL,
 which will cause population to be sourced from \code{country}}
 
+\item{baseline_contact_matrix}{The starting contact matrix prior to any changes
+due to interventions or otherwise. Default = NULL, which will use the contact
+matrix associated with the coutnry provided.}
+
 \item{reporting_fraction}{Reporting fraction. Numeric for what proportion of
 the total deaths the reported deaths represent. E.g. 0.5 results in
 the model calibrating to twice the deaths provided by \code{data$deaths}}
+
+\item{reporting_fraction_bounds}{Region to vary reporting fraction}
 
 \item{n_mcmc}{number of mcmc mcmc iterations to perform}
 
@@ -42,6 +70,20 @@ to select parameter set. For each parmater set sampled, run particle filter with
 \item{hosp_beds}{General Hospital Beds}
 
 \item{icu_beds}{ICU Beds}
+
+\item{combined_data}{Data to fit to}
+
+\item{log_likelihood}{function to calculate log likelihood, must take named parameter vector as input,
+allow passing of implicit arguments corresponding to the main function arguments.
+Returns a named list, with entries:
+  - $log_likelihood, a single numeric
+  - $sample_state, a numeric vector corresponding to the state of a single particle, chosen at random,
+  at the final time point for which we have data.
+  If NULL, calculated using the function calc_loglikelihood.}
+
+\item{...}{Further aguments for the model parameter function. If using the
+\code{\link[squire]{explicit_model}} (default) this will be
+\code{parameters_explicit_SEEIR}.}
 }
 \value{
 Model fit from [squire:::pmcmc]

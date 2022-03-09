@@ -15,6 +15,7 @@
 fit_spline_rt <- function(data,
                           country,
                           population,
+                          baseline_contact_matrix = baseline_contact_matrix,
                           reporting_fraction=1,
                           reporting_fraction_bounds=NULL,
                           n_mcmc = 10000,
@@ -32,10 +33,15 @@ fit_spline_rt <- function(data,
                           pcr_df_end = NULL,
                           pcr_df_pos = NULL,
                           pcr_df_samples = NULL,
+                          comb_df = NULL,
                           IFR_slope_bounds = NULL,
                           IFR_multiplier_bounds = NULL,
                           combined_data = NULL,
-
+                          combined_data_week = NULL,
+                          log_likelihood = NULL,
+                          lld =NULL,
+                          k_death = 2,
+                          HypGeoWeights = NULL,
                           ...) {
 # browser()
   ## -----------------------------------------------------------------------------
@@ -88,8 +94,8 @@ fit_spline_rt <- function(data,
   R0_max <- 5.6
   last_start_date <- as.Date(null_na(min_death_date))-10
   first_start_date <- as.Date(null_na(min_death_date))-55
-  start_date <- as.Date(null_na(min_death_date))-30
-
+  start_date <- as.Date(null_na(min_death_date))-50
+# browser()
   # These 4 parameters do nothign as setting R0_change to 1
   Meff_min <- -2
   Meff_max <- 2
@@ -104,10 +110,10 @@ fit_spline_rt <- function(data,
   ## -----------------------------------------------------------------------------
   ## Step 2b: Sourcing suitable starting conditions
   ## -----------------------------------------------------------------------------
-
-  date_start <- data$date[which(cumsum(data$deaths)>10)[1]] - 30
+# browser()
+  date_start <- data$date[which(cumsum(data$deaths)>10)[1]] - 50
   R0_start <- 3
-
+# browser()
   # These are the the initial conditions now loaded from our previous run.
   R0_start <- min(max(R0_start, R0_min), R0_max)
   date_start <- min(max(as.Date(start_date), as.Date(first_start_date)), as.Date(last_start_date))
@@ -166,6 +172,11 @@ fit_spline_rt <- function(data,
   pcr_det <- (pcr_det/max(pcr_det))*pcr_sens
 
 
+  pcr_det_sero_len <- c(pcr_det, rep(0, length(sero_det)-length(pcr_det)))
+  comb_det <-   1-((1-c(0, 0, 0, 0, head(sero_det, -4))) * (1-pcr_det_sero_len))
+
+# browser()
+
   # PMCMC Parameters
   pars_init = list('start_date' = date_start,
                    'R0' = R0_start,
@@ -187,15 +198,15 @@ fit_spline_rt <- function(data,
                   "Rt_shift_scale" = Rt_shift_scale_max)
   pars_discrete = list('start_date' = TRUE, 'R0' = FALSE, 'Meff' = FALSE,
                        'Meff_pl' = FALSE, "Rt_shift" = FALSE, "Rt_shift_scale" = FALSE)
-  pars_obs = list(phi_cases = 1, k_cases = 2, phi_death = 1, k_death = 2, exp_noise = 1e6,
-                  sero_det = sero_det, pcr_det = pcr_det, combined_data = combined_data)
+  pars_obs = list(phi_cases = 1, k_cases = 2, phi_death = 1, k_death = k_death, exp_noise = 1e6,
+                  sero_det = sero_det, pcr_det = pcr_det, comb_det = comb_det, combined_data = combined_data, combined_data_week = combined_data_week, lld = lld, HypGeoWeights = HypGeoWeights)
 
   # add in the spline list
   pars_init <- append(pars_init, pars_init_rw)
   pars_min <- append(pars_min, pars_min_rw)
   pars_max <- append(pars_max, pars_max_rw)
   pars_discrete <- append(pars_discrete, pars_discrete_rw)
-
+# browser()
   # add reporting bounds if given
   if(!is.null(reporting_fraction_bounds)){
     pars_init <- append(pars_init, c("rf"=reporting_fraction_bounds[1]))
@@ -218,6 +229,14 @@ fit_spline_rt <- function(data,
     pcr_df = data.frame(date_start = pcr_df_start, date_end = pcr_df_end, pcr_pos = pcr_df_pos, samples = pcr_df_samples)
     pars_obs <- append(pars_obs, c("pcr_df" = list(pcr_df)))
   }
+
+  if(!is.null(comb_df)){
+    # if(any(lapply(as.list(comb_df), length) != length(comb_df_start))){
+      # stop("pcr_df inputs must have the same length")}
+    # comb_df = data.frame(date_start = comb_df_start, date_end = comb_df_end, comb_pos = comb_df_pos, samples = comb_df_samples)
+    pars_obs <- append(pars_obs, c("comb_df" = list(comb_df)))
+  }
+
 ######################################################################
   if(!is.null(IFR_slope_bounds)){
     pars_init <- append(pars_init, c("IFR_slope"=IFR_slope_bounds[1]))
@@ -276,15 +295,15 @@ fit_spline_rt <- function(data,
   ## -----------------------------------------------------------------------------
 
   # mixing matrix - assume is same as country as whole
-  mix_mat <- squire::get_mixing_matrix(country)
-
+  # mix_mat <- squire::get_mixing_matrix(country)
+# browser()
   # run the pmcmc
   res <- squire::pmcmc(data = data,
                        n_mcmc = n_mcmc,
                        log_prior = logprior,
                        n_particles = 1,
                        steps_per_day = 1,
-                       # log_likelihood = calc_loglikelihood_Hyper_Geo_Lik,
+                       log_likelihood = log_likelihood,
                        reporting_fraction = reporting_fraction,
                        # squire_model = squire:::explicit_model(),
                        squire_model = squire:::deterministic_model(),
@@ -297,7 +316,7 @@ fit_spline_rt <- function(data,
                        pars_obs = pars_obs,
                        proposal_kernel = proposal_kernel,
                        population = population,
-                       baseline_contact_matrix = mix_mat,
+                       baseline_contact_matrix = baseline_contact_matrix,
                        R0_change = R0_change,
                        date_R0_change = date_R0_change,
                        Rt_args = squire:::Rt_args_list(
@@ -383,17 +402,24 @@ seroprev_df <- function(res){
                      select(replicate, t, .data$date, .data$symptoms),
                    by = c("replicate", "t", "date"))
 
+  pcr_det_sero_len <- c(pcr_det, rep(0, length(sero_det)-length(pcr_det)))
+  combined_det <-   1-((1-c(0, 0, 0, 0, head(sero_det, -4))) * (1-pcr_det_sero_len))
+# browser()
   inf <- inf %>%
     group_by(replicate) %>%
     na.omit() %>%
     mutate(pcr_positive = roll_func(.data$infections, pcr_det),
            sero_positive = roll_func(.data$symptoms, sero_det),
+           combined_positive = roll_func(.data$infections, combined_det),
            ps_ratio = .data$pcr_positive/.data$sero_positive,
            sero_perc = .data$sero_positive/max(.data$S,na.rm = TRUE),
-           pcr_perc = .data$pcr_positive/max(.data$S,na.rm = TRUE)) %>%
+           pcr_perc = .data$pcr_positive/max(.data$S,na.rm = TRUE),
+           combined_perc = .data$combined_positive/max(.data$S,na.rm = TRUE)) %>%
     ungroup
 
   inf$reporting_fraction <- res$pmcmc_results$inputs$pars_obs$phi_death
+  # browser()
+
   return(inf)
 
 }
@@ -402,7 +428,8 @@ Summ_sero_pcr_data <- function(x){
   if(is.null(x)){return(NULL)}
   x %>% group_by(date) %>%
     summarise(mean_pcr = mean(pcr_perc)*100, min_pcr = min(pcr_perc)*100, max_pcr = max(pcr_perc)*100,
-              mean_sero = mean(sero_perc)*100, min_sero = min(sero_perc)*100, max_sero = max(sero_perc)*100)}
+              mean_sero = mean(sero_perc)*100, min_sero = min(sero_perc)*100, max_sero = max(sero_perc)*100,
+              mean_combined = mean(combined_perc)*100, min_combined = min(combined_perc)*100, max_combined = max(combined_perc)*100)}
 
 # pcr_at_date <- function(date, infections, det, dates, N) {
 #

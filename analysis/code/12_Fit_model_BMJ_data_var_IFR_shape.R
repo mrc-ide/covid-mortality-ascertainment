@@ -48,10 +48,10 @@ library(tidyverse)
 
 
 # Load IFR inputs
-IFR_l <- readRDS("analysis/data/Code-generated-data/00_03b_IFR_values.rds")
+IFR_l <- readRDS("analysis/data/Code-generated-data/00_03_IFR_values_Brazeau.rds")
 IFR_Coefs <- IFR_l$IFR_Coefs
 IFR_Age <- IFR_l$IFR_Age
-pop_st_lu_prov <- readRDS("analysis/data/Code-generated-data/00_02_Lusaka_Dist_Pop_Struc_2020_opendataforafrica.rds")
+pop_st_lu_prov <- readRDS("analysis/data/Code-generated-data/00_02_Lusaka_Prov_Pop_Struc_2020_opendataforafrica.rds")
 Age_groups <- seq(2.5,82.5, by = 5)
 
 # 9x9 matrix of IFR values:
@@ -88,6 +88,7 @@ BMJ_data_HighEst <- readRDS("analysis/data/Code-generated-data/00_05c_BMJ_Data_D
   rename(deaths = Est_Deaths_BMJ_Sam_HE_Strict)
 pop_st_lu <- readRDS("analysis/data/Code-generated-data/00_02_Lusaka_Prov_Pop_Struc_2020.rds")
 Weighted_Durs_Hosp <- readRDS("analysis/data/Code-generated-data/00_04_Weighted_durations_death_survive.rds")
+prob_death_tot <- IFR_Age_var_slope_int_fil[1,]/(100*parameters_explicit_SEEIR("Zambia")$prob_hosp)
 ## Now run the code over all these values:
 fit_l_IFR_slope <- lapply(1:nrow(IFR_Age_var_slope_int_fil), function(x){
 

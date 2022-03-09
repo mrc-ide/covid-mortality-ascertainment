@@ -11,22 +11,22 @@ library(reshape2)
 #####################
 
 # Load and format the data
-Con_df <- read.csv("analysis/data/raw/Manicaland_Contact_Matrix_Data/2017_Melegaro_Zimbabwe_contact_common.csv")[,c(1:5)]
-ConEx_df <- read.csv("analysis/data/raw/Manicaland_Contact_Matrix_Data/2017_Melegaro_Zimbabwe_contact_extra.csv")
-Par_df <- read.csv("analysis/data/raw/Manicaland_Contact_Matrix_Data/2017_Melegaro_Zimbabwe_participant_common.csv")[,c(1,3)]
-Par2_df <- read.csv("analysis/data/raw/Manicaland_Contact_Matrix_Data/2017_Melegaro_Zimbabwe_participant_extra.csv")[,c(1,3,4)]
+Con_com <- read.csv("analysis/data/raw/Manicaland_Contact_Matrix_Data/2017_Melegaro_Zimbabwe_contact_common.csv")[,c(1:5)]
+Con_ex <- read.csv("analysis/data/raw/Manicaland_Contact_Matrix_Data/2017_Melegaro_Zimbabwe_contact_extra.csv")
+Par_com <- read.csv("analysis/data/raw/Manicaland_Contact_Matrix_Data/2017_Melegaro_Zimbabwe_participant_common.csv")[,c(1,3)]
+Par_ex <- read.csv("analysis/data/raw/Manicaland_Contact_Matrix_Data/2017_Melegaro_Zimbabwe_participant_extra.csv")[,c(1,3,4)]
 
 # Merge par files
-Par_full <- merge(Par_df, Par2_df, by = "part_id")
+Par_full <- merge(Par_com, Par_ex, by = "part_id")
 
-# For the time being, let's remove the rows where participant age was not given (there is only one of these),
+# Remove the rows where participant age was not given (there is only one of these),
 # and specify location
 Par_full <- Par_full[!is.na(Par_full$part_age),] %>%
   mutate(site = ifelse(study_site==2,"Nyanga",ifelse(study_site==1,"Watsomba",NA))) %>%
   mutate(par_age_gr = cut(x = part_age, breaks = c(seq(0,75,5),120),include.lowest = T, right = F))
 
 # Merge Contact files
-Con_full <- merge(Con_df,ConEx_df, by = "cont_id")
+Con_full <- merge(Con_com, Con_ex, by = "cont_id")
 
 # Merge Con and Par files, 27 rows are lost because we are removing one participant (481)
 df_full <- merge(Con_full, Par_full, by = "part_id")
@@ -113,19 +113,25 @@ MatList <- lapply(Imp, function(x){
   })
 
 
-# Average number of observed contacts per day, per site (eq 7)
+# Average number of observed contacts per day, per site (eq 2-7)
+# Rows are participants, columns are contacts
 m_ij_sd <- lapply(Imp, function(x){
   lapply(1:length(df_ImpList_mat[[x]]), function(y){
-    MatList[[x]][[y]]/ni_s_d[,c("ni_s1_d1","ni_s1_d2","ni_s2_d1","ni_s2_d2")][,y]})
+    MatList[[x]][[y]]/(ni_s_d[,c("ni_s1_d1","ni_s1_d2","ni_s2_d1","ni_s2_d2")][,y])})
 })
+# MatList[[1]][[1]][1,]/(ni_s_d[,c("ni_s1_d1","ni_s1_d2","ni_s2_d1","ni_s2_d2")][1,1])
+# m_ij_sd[[1]][[1]][1,]
+
 
 # Average number of observed contacts per site (eq 8)
+#
 m_ij_s <- lapply(Imp, function(x){
   lapply(c(1,3),function(y){
     (m_ij_sd[[x]][[y]]*ni_s_d[,c("ni_s1_d1","ni_s1_d2","ni_s2_d1","ni_s2_d2")][,y] + m_ij_sd[[x]][[y+1]]*ni_s_d[,c("ni_s1_d1","ni_s1_d2","ni_s2_d1","ni_s2_d2")][,y+1])/
       (rowSums(ni_s_d[,c("ni_s1_d1","ni_s1_d2","ni_s2_d1","ni_s2_d2")][,c(y,y+1)]))})
 })
-
+# m_ij_sd[[1]][[1]][1,]*ni_s_d[,c("ni_s1_d1","ni_s1_d2","ni_s2_d1","ni_s2_d2")][1,1]
+# (m_ij_sd[[1]][[1]]*ni_s_d[,c("ni_s1_d1","ni_s1_d2","ni_s2_d1","ni_s2_d2")][,1])[1,]
 
 # Average number of observed contacts (eq 9).
 # Note that the n_i per day are the same, but it doesn't matter if you use for one day or the total, because they are found on both sides of the fraction
@@ -133,6 +139,13 @@ m_ij <- lapply(Imp, function(x){
   (m_ij_s[[x]][[1]]*rowSums(ni_s_d[,c("ni_s1_d1","ni_s1_d2")]) + m_ij_sd[[x]][[2]]*rowSums(ni_s_d[,c("ni_s2_d1","ni_s2_d2")]))/
       (rowSums(ni_s_d[,c("ni_s1_d1","ni_s1_d2","ni_s2_d1","ni_s2_d2")]))
   })
+
+## Checking it's the same when we don't sum the population structues. It is.
+# m_ij_2 <- lapply(Imp, function(x){
+#   (m_ij_s[[x]][[1]]*(ni_s_d[,c("ni_s1")]) + m_ij_sd[[x]][[2]]*(ni_s_d[,c("ni_s2")]))/
+#     ((ni_s_d[,c("ni")]))
+# })
+
 
 # Get the population grouped age structure
 PopAgeTot <- PopAgeBreakDown %>% group_by(AgeGroup = cut(x = as.numeric(age), breaks = c(seq(0,75,5),120),include.lowest = T, right = F)) %>%
@@ -161,6 +174,7 @@ cs_ij <- lapply(Imp, function(x){
 
 # Average out replicates:
 cs_ij_av <- Reduce('+',cs_ij)/20
+
 
 
 squire::get_mixing_matrix("Zimbabwe")
@@ -193,6 +207,14 @@ library(mgcv)
 ModFit <- gam(val ~  te(Par_Age_gr, Con_Age_gr, bs="tp", k = 10) + offset(ln_n_i),
               data = Gathered_Matrix,
               family = nb)
+# te: tensor product smooths or tensor product interactions
+# tp: thin plate regrssion spline
+# k: dimensions of bases
+# offset? Should I have logged this? https://www.rdocumentation.org/packages/mgcv/versions/1.8-38/topics/gam
+# Family: negative binomial: mean, dispersion, variance are standard
+# link for nb in naturally log https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/negbin.html
+
+
 
 # summary(ModFit)
 # plot(ModFit)

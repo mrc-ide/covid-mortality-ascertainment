@@ -67,3 +67,62 @@ sero_plot <- function(PCR_Sero_PlotData, fit, Lancet_Data){
     xlab("Date") +
     theme_bw()
 }
+
+
+
+
+
+######
+part_fit_plot <- function(fit){plot(fit, particle_fit = T) +
+    annotate(geom = "point", x= as.Date("2020-04-18"), y = 50) +
+    annotate(geom = "text", x=as.Date("2020-04-22"), y = 50, hjust=0, label = "BMJ data estimated deaths") +
+    annotate(geom = "segment", x=as.Date("2020-04-15"), xend = as.Date("2020-04-20"), y = 50*0.92, yend = 50*0.92, col = "red", alpha = 0.7) +
+    annotate(geom = "rect", xmin=as.Date("2020-04-15"), xmax = as.Date("2020-04-20"), ymin = 50*0.915, ymax = 50*0.925, fill = NA, color = "black", linetype = 2) +
+    annotate(geom = "text", x=as.Date("2020-04-22"), y = 50*0.92, hjust = 0, label = "Model fit") +
+    xlim(as.Date("2020-04-15"), as.Date("2020-10-01")) + coord_cartesian(ylim=c(0, 50)) +
+    theme(legend.position = "none")
+}
+pcr_fit_plot <- function(Summ_sero_fit){ggplot(Summ_sero_fit, aes(x = date, y = mean_pcr)) + geom_line(aes(x=date, y=mean_pcr),linetype="dashed") +
+    geom_ribbon(aes(x=date,ymin=min_pcr, ymax=max_pcr), alpha=0.3)+
+    geom_point(aes(x= as.Date("2020-07-15"),y=7.6)) +
+    annotate("text", x=as.Date("2020-07-15")+5, y=7.6+0.5, label="Mulenga et al.", hjust =0) +
+    annotate("text", x=as.Date("2020-09-01"), y=2, label="Model fit", alpha=0.8) +
+    geom_errorbar(aes(ymin=4.7,ymax=10.6,x=as.Date("2020-07-15"), width=10)) +
+    geom_errorbarh(aes(xmin=as.Date("2020-07-04"),xmax=as.Date("2020-07-27"),y=7.6, height=0)) +
+    ylab(paste0("PCR +ve %")) +
+    xlim(as.Date("2020-04-15"), as.Date("2020-10-01")) + coord_cartesian(ylim=c(0, 15)) +
+    theme_bw()} #+
+    # ggtitle(paste("bin ll", round(mean(dbinom(x = round(0.076*2990), size = 2990, prob = filter(pcr_sero_data, date %in% as.Date(c("2020-07-15")))$mean_pcr/100,log = T)),1)))}
+sero_fit_plot <- function(Summ_sero_fit){ggplot(Summ_sero_fit, aes(x = date, y = mean_sero)) + geom_line(aes(x=date, y=mean_sero),linetype="dashed") +
+    geom_ribbon(aes(x=date,ymin=min_sero, ymax=max_sero), alpha=0.3)+
+    geom_point(aes(x= as.Date("2020-07-15"),y=2.1)) +
+    annotate("text", x=as.Date("2020-07-15")+5, y=2.1+0.5, label="Mulenga et al.", hjust =0) +
+    annotate("text", x=as.Date("2020-09-01"), y=max(Summ_sero_fit$max_sero), label="Model fit", alpha=0.8, hjust=0, vjust = 2) +
+    geom_errorbar(aes(ymin=1.1,ymax=3.1,x=as.Date("2020-07-15"), width=10)) +
+    geom_errorbarh(aes(xmin=as.Date("2020-07-04"),xmax=as.Date("2020-07-27"),y=2.1, height=0)) +
+    # geom_point(aes(x= as.Date("2020-07-29"),y=10.6), color="darkblue") +
+    # annotate("text", x=as.Date("2020-07-29")+15, y=10.6, label="Mulenga et al. \n (extrapolated \n from PCR)", color = "darkblue", hjust =0) +
+    # geom_text(aes(label = "Mulenga et al. \n (extrapolated \n from PCR)", x= as.Date("2020-07-29")+15,y=0.106), color = "darkblue", hjust= 0) +
+    # geom_errorbar(aes(ymin=7.3,ymax=13.9,x=as.Date("2020-07-29"), width=10), color="darkblue") +
+    # geom_errorbarh(aes(xmin=as.Date("2020-07-18"),xmax=as.Date("2020-08-10"),y=10.6, height=0), color="darkblue") +
+    ylab(paste0("Sero +ve %")) +
+    annotate("text", x=as.Date("2020-05-01"), y=1.8, label=paste(""), color = "darkblue", hjust =0) +
+    xlim(as.Date("2020-04-15"), as.Date("2020-10-01")) + coord_cartesian(ylim=c(0, 20)) +
+    theme_bw()}
+
+combined_fit_plot <- function(Summ_sero_fit){ggplot(Summ_sero_fit, aes(x = date, y = mean_combined)) + geom_line(aes(x=date, y=mean_combined),linetype="dashed") +
+    geom_ribbon(aes(x=date,ymin=min_combined, ymax=max_combined), alpha=0.3)+
+    geom_point(aes(x= as.Date("2020-07-11"),y=9.1)) +
+    annotate("text", x=as.Date("2020-07-11")+5, y=9.1+0.5, label="Mulenga et al.", hjust =0) +
+    annotate("text", x=as.Date("2020-09-01"), y=max(Summ_sero_fit$max_combined), label="Model fit", alpha=0.8, hjust=0, vjust = 2) +
+    geom_errorbar(aes(ymin=2.6,ymax=15.7,x=as.Date("2020-07-11"), width=10)) +
+    geom_errorbarh(aes(xmin=as.Date("2020-07-04"),xmax=as.Date("2020-07-19"),y=9.1, height=0)) +
+    # geom_point(aes(x= as.Date("2020-07-29"),y=10.6), color="darkblue") +
+    # annotate("text", x=as.Date("2020-07-29")+15, y=10.6, label="Mulenga et al. \n (extrapolated \n from PCR)", color = "darkblue", hjust =0) +
+    # geom_text(aes(label = "Mulenga et al. \n (extrapolated \n from PCR)", x= as.Date("2020-07-29")+15,y=0.106), color = "darkblue", hjust= 0) +
+    # geom_errorbar(aes(ymin=7.3,ymax=13.9,x=as.Date("2020-07-29"), width=10), color="darkblue") +
+    # geom_errorbarh(aes(xmin=as.Date("2020-07-18"),xmax=as.Date("2020-08-10"),y=10.6, height=0), color="darkblue") +
+    ylab(paste0("Combined +ve %")) +
+    # annotate("text", x=as.Date("2020-05-01"), y=1.8, label=paste(""), color = "darkblue", hjust =0) +
+    xlim(as.Date("2020-04-15"), as.Date("2020-10-01")) + coord_cartesian(ylim=c(0, 20)) +
+    theme_bw()}

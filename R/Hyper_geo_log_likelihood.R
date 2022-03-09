@@ -6,7 +6,7 @@ calc_loglikelihood_Hyper_Geo_Lik <- function(pars, data, squire_model, model_par
                                        forecast_days = 0, return = "ll",
                                        Rt_args,
                                        interventions,...) {
-
+# browser()
   #----------------..
   # specify particle setup
   #----------------..
@@ -350,7 +350,7 @@ run_deterministic_comparison_HYPGEO <- function(data,
     mutate(Mod_cd_Lus = Mod_cd*frac_mort) %>%
     mutate(tot_mort_deaths = total_deaths) %>%
     mutate(Mod_ncd = (total_deaths - Mod_cd_Lus)) %>% # non-covid deaths
-    mutate(Mod_pos_ncd = Mod_ncd*pcr_perc) %>%
+    mutate(Mod_pos_ncd = Mod_ncdx*pcr_perc) %>%
     mutate(Mod_tot_pos_mort = Mod_cd_Lus+Mod_pos_ncd)
 
   # browser()
@@ -360,7 +360,7 @@ run_deterministic_comparison_HYPGEO <- function(data,
   #            Mod_Pos_deaths = round(covid_pos_mort),
   #            TotD_min_ModD = round(Comb_data$total_deaths - covid_pos_mort)
   #            )
-
+# browser()
   Likelihood_data <- Mod_Deaths_Age %>%
     mutate(Mod_tot_neg_mort = tot_mort_deaths-Mod_tot_pos_mort) %>%
     mutate(Mod_tot_neg_mort = ifelse(Mod_tot_neg_mort<0, sampled_deaths-CT_45_Either, Mod_tot_neg_mort)) %>% # If the number of modelled covid deaths exceeds the total number of deaths (ie the number of non-covid deaths is negative), increase the modelled number of non-covid deaths to the minimum it needs to be: min number of covid deaths that we know occurred.

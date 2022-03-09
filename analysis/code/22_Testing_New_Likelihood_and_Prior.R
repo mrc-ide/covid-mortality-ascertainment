@@ -1,3 +1,4 @@
+rm(list = ls())
 ## Testing the new likelihood function:
 # devtools::install_github("mrc-ide/cma")
 devtools::install()
@@ -7,16 +8,26 @@ library(dplyr)
 library(tidyr)
 library(reshape2)
 library(ggplot2)
-library(cma)
+# library(cma)
 # devtools::load_all(".")
 # bring my data in:
-PMP_data_age <- readRDS("analysis/data/Code-generated-data/00_06_Mortuary_post-mortem_age.rds") %>% select(date,Age_group,sampled_deaths,CT_45_Either,CT_40_Either)
-Mort_data_age <- readRDS("analysis/data/Code-generated-data/00_07_Mortuary_data_age.rds")
+PMP_data_age_Test <- readRDS("analysis/data/Code-generated-data/00_06_Mortuary_post-mortem_age.rds") %>% select(date,Age_group,sampled_deaths,CT_45_Either,CT_40_Either)
+Mort_data_age_Test <- readRDS("analysis/data/Code-generated-data/00_07_Mortuary_data_age.rds")
+
+Mort_data_age_Test %>% filter(date == "2020-07-06")
+Combined %>% filter(date == "2020-07-06")
+Combined_Weeks_Test %>% filter(date == "2020-07-06")
+Combined_Weeks_Test
+
 Combined <- merge(Mort_data_age, PMP_data_age, by.x = c("date","Age_group"), all = T) %>% replace_na(list(total_deaths = 0, sampled_deaths = 0, CT_45_Either = 0, CT_40_Either = 0)) %>%
   complete(Age_group, date, fill = list(total_deaths = 0, sampled_deaths = 0, CT_45_Either = 0, CT_40_Either = 0))
 
+Combined <- Combined %>% filter(date == "2020-07-06")
+
+Combined %>% mutate(Week_gr = cut.Date(x = date, breaks = "weeks", labels = F))
+
 # Group by weeks
-Combined_Weeks <- Combined[-nrow(Combined),] %>% mutate(Week_gr = cut.Date(x = date, breaks = "weeks", labels = F)) %>%
+Combined_Weeks_Test <- Combined[-nrow(Combined),] %>% mutate(Week_gr = cut.Date(x = date, breaks = "weeks", labels = F)) %>%
   group_by(Week_gr,Age_group) %>% summarise(date = head(date,1),
                                   total_deaths = sum(total_deaths),
                                   sampled_deaths = sum(sampled_deaths),
@@ -24,8 +35,8 @@ Combined_Weeks <- Combined[-nrow(Combined),] %>% mutate(Week_gr = cut.Date(x = d
                                   CT_40_Either = sum(CT_40_Either)) %>%
   ungroup %>% complete(Age_group, nesting(Week_gr,date), fill = list(total_deaths = 0, sampled_deaths = 0, CT_45_Either = 0, CT_40_Either = 0))
 
-Combined_Weeks[Combined_Weeks$Week_gr==4, "total_deaths"] <-
-  Combined_Weeks[Combined_Weeks$Week_gr %in% c(3,5), c("Age_group","Week_gr","total_deaths")] %>% group_by(Age_group) %>%
+Combined_Weeks_Test[Combined_Weeks_Test$Week_gr==4, "total_deaths"] <-
+  Combined_Weeks_Test[Combined_Weeks_Test$Week_gr %in% c(3,5), c("Age_group","Week_gr","total_deaths")] %>% group_by(Age_group) %>%
   summarise(total_deaths = round(mean(total_deaths))) %>% select(total_deaths)
 
 
@@ -37,6 +48,8 @@ Lus_Pop_Age <- readRDS("analysis/data/Code-generated-data/00_02_Lusaka_Dist_Pop_
 Weighted_Durs_Hosp <- readRDS("analysis/data/Code-generated-data/00_04_Weighted_durations_death_survive.rds")
 Lancet_Data <- readRDS("analysis/data/Code-generated-data/00_10_Lancet_Data.rds")
 deaths_age <- readRDS("analysis/data/Code-generated-data/00_03_IFR_values_Brazeau.rds")
+
+Prob_Death_Mat <- readRDS("~/Documents/Imperial/PostDoc/Zambia/covid-mortality-ascertainment/analysis/data/Code-generated-data/00_03_Prob_Death_Matrix.rds")
 
 
 IFR_mat <- readRDS("analysis/data/Code-generated-data/IFR_mat_Ints2.rds")
@@ -55,63 +68,83 @@ IFR_vals_1 <- apply(IFR_Age_var_slope_int, MARGIN = 1, FUN = function(x){x/(100*
 IFR_Age_var_slope_int_fil <- IFR_Age_var_slope_int[!IFR_vals_1,]
 IFR_mat_fil <- IFR_mat[!IFR_vals_1,]
 
+Input_list <- as.list(data.frame(apply(IFR_Age_var_slope_int_fil,1, function(x){x/(100*squire::parameters_explicit_SEEIR("Zambia")$prob_hosp)})))
 
-Test <- fit_spline_rt(data = data,
-                      country = "Zambia", # here you still need to say what country the data is from so the right contact matrix is loaded
+Surv_Dur_Weighted <- Weighted_Durs_Hosp$Surv_Dur_Weighted
+Death_Dur_Weighted <- Weighted_Durs_Hosp$Death_Dur_Weighted
+
+Mixing_Matrix <- as.matrix(readRDS("~/Documents/Imperial/PostDoc/Zambia/covid-mortality-ascertainment/analysis/data/Code-generated-data/00_11_Nyanga_Mixing_Matrix.rds"))
+
+
+# Sys.setenv(SQUIRE_PARALLEL_DEBUG = TRUE)
+# Test_5 <- fit_spline_rt(data = data,
+Test_8 <- fit_spline_rt(data = data,
+                      combined_data = Combined_Weeks,
                       population = Lus_Pop_Age,
-                      reporting_fraction = 0.1,
-                      n_mcmc = 100,
-                      replicates = 10,
+                      # baseline_contact_matrix = Mixing_Matrix,
+                      baseline_contact_matrix = Mixing_Matrix,
+                      n_mcmc = 20000, replicates = 100,
+                      dur_get_ox_survive = Surv_Dur_Weighted,
+                      dur_get_ox_die = Death_Dur_Weighted,
+                      prob_non_severe_death_treatment = Prob_Death_Mat[[37]],
+                      # prob_non_severe_death_treatment = Input_list[[36]],
+                      prob_severe = rep(0,17),
+                      dur_R = Inf,
+                      country = "Zambia", # here you still need to say what country the data is from so the right contact matrix is loaded
+                      reporting_fraction = 1,
                       rw_duration = 14,
                       hosp_beds = 1e10,
                       icu_beds = 1e10)
+# Test 5 shows that deaths in the range that we had before.
+# If I add the death probability - slightly decreased, what does that do? Test 6. Test 6 is also high enough
+# Test 7 will be with the new mixing matrix.
 
+table(Test_7$replicate_parameters$start_date)
 
-
-fit_l_IFR_slope <- lapply(1:nrow(IFR_Age_var_slope_int_fil), function(x){
-
-  prob_death_tot <- IFR_Age_var_slope_int_fil[x,]/(100*squire::parameters_explicit_SEEIR("Zambia")$prob_hosp)
-  # browser()
-
-  print(x)
-  # Sys.setenv(SQUIRE_PARALLEL_DEBUG = "TRUE")
-  Sys.setenv(SQUIRE_PARALLEL_DEBUG = "")
-  fit_BMJ_mort <- fit_spline_rt(data = data,
-                                combined_data = Combined_Weeks,
-                                country = "Zambia", # here you still need to say what country the data is from so the right contact matrix is loaded
-                                population = Lus_Pop_Age,
-                                reporting_fraction = 1,
-                                # reporting_fraction_bounds = c(0.25,0.1,1),
-                                n_mcmc = 1000,
-                                replicates = 100,
-                                rw_duration = 14,
-                                hosp_beds = 1e10,
-                                icu_beds = 1e10,
-                                prob_severe = rep(0,17),
-                                prob_non_severe_death_treatment = deaths_age$Prob_death_when_hospitalised,
-                                # prob_non_severe_death_treatment = prob_death_tot,
-                                dur_get_ox_survive = Weighted_Durs_Hosp$Surv_Dur_Weighted,
-                                dur_get_ox_die = Weighted_Durs_Hosp$Death_Dur_Weighted,
-                                dur_R = Inf
-                                # sero_df_start = as.Date(c("2020-07-04")),#,"2020-07-18")),
-                                # sero_df_end = as.Date(c("2020-07-27")),#,"2020-08-10")),
-                                # sero_df_pos = as.numeric(as.integer(c(Lancet_Data$Sero_prev["val"]/100*Lancet_Data$Sero_prev["n"]))),#, 0.106*1952))), # See Table 2
-                                # sero_df_samples = Lancet_Data$Sero_prev["n"],#,1952),
-                                # pcr_df_start = as.Date(c("2020-07-04")),
-                                # pcr_df_end = as.Date(c("2020-07-27")),
-                                # pcr_df_pos = as.integer(c(Lancet_Data$PCR_prev["val"]/100*Lancet_Data$PCR_prev["n"])), # See Table 2
-                                # pcr_df_samples = Lancet_Data$PCR_prev["n"]
-                                # IFR_slope_bounds = c(1,0.5,1.5),
-                                # IFR_multiplier_bounds = c(1,0.4,1.5)
-  )
-  })
+# fit_l_IFR_slope <- lapply(1:nrow(IFR_Age_var_slope_int_fil), function(x){
+#
+#   prob_death_tot <- IFR_Age_var_slope_int_fil[x,]/(100*squire::parameters_explicit_SEEIR("Zambia")$prob_hosp)
+#   # browser()
+#
+#   print(x)
+#   # Sys.setenv(SQUIRE_PARALLEL_DEBUG = "TRUE")
+#   Sys.setenv(SQUIRE_PARALLEL_DEBUG = "")
+#   fit_BMJ_mort <- fit_spline_rt(data = data,
+#                                 combined_data = Combined_Weeks,
+#                                 country = "Zambia", # here you still need to say what country the data is from so the right contact matrix is loaded
+#                                 population = Lus_Pop_Age,
+#                                 reporting_fraction = 1,
+#                                 # reporting_fraction_bounds = c(0.25,0.1,1),
+#                                 n_mcmc = 1000,
+#                                 replicates = 100,
+#                                 rw_duration = 14,
+#                                 hosp_beds = 1e10,
+#                                 icu_beds = 1e10,
+#                                 prob_severe = rep(0,17),
+#                                 prob_non_severe_death_treatment = deaths_age$Prob_death_when_hospitalised,
+#                                 # prob_non_severe_death_treatment = prob_death_tot,
+#                                 dur_get_ox_survive = Weighted_Durs_Hosp$Surv_Dur_Weighted,
+#                                 dur_get_ox_die = Weighted_Durs_Hosp$Death_Dur_Weighted,
+#                                 dur_R = Inf
+#                                 # sero_df_start = as.Date(c("2020-07-04")),#,"2020-07-18")),
+#                                 # sero_df_end = as.Date(c("2020-07-27")),#,"2020-08-10")),
+#                                 # sero_df_pos = as.numeric(as.integer(c(Lancet_Data$Sero_prev["val"]/100*Lancet_Data$Sero_prev["n"]))),#, 0.106*1952))), # See Table 2
+#                                 # sero_df_samples = Lancet_Data$Sero_prev["n"],#,1952),
+#                                 # pcr_df_start = as.Date(c("2020-07-04")),
+#                                 # pcr_df_end = as.Date(c("2020-07-27")),
+#                                 # pcr_df_pos = as.integer(c(Lancet_Data$PCR_prev["val"]/100*Lancet_Data$PCR_prev["n"])), # See Table 2
+#                                 # pcr_df_samples = Lancet_Data$PCR_prev["n"]
+#                                 # IFR_slope_bounds = c(1,0.5,1.5),
+#                                 # IFR_multiplier_bounds = c(1,0.4,1.5)
+#   )
+#   })
 
 # SavedBit <-fit_BMJ_mort
 
 
-p1 <- plot(fit_BMJ_mort, particle_fit = T) + theme(legend.position = "none")
+p1 <- plot(Test_7, particle_fit = T) + theme(legend.position = "none")
 
-sero_pcr <- seroprev_df(fit_BMJ_mort)
+sero_pcr <- seroprev_df(Test_7)
 ser_pcr_2 <- Summ_sero_pcr_data(sero_pcr)
 
 p2 <- ggplot(ser_pcr_2, aes(x = date, y = mean_pcr)) + geom_line(aes(x=date, y=mean_pcr),linetype="dashed") +
@@ -136,10 +169,25 @@ cowplot::plot_grid(p1,p3,p2,nrow = 1)
 
 ## From these graphs, I can see that the seroprev reahed about 13%, while the pcr reached about 6%
 
+### I want to check to see if the data was distorted in these fits. Did that allow this to happen?
+fit_Model[[33]]$pmcmc_results$inputs$pars_obs$combined_data$total_deaths
+
+
+
 # I want to compare the model results with the true results by week
 
+
+fit_BMJ_mort <- Test_5
+
+DatesDesired <- c(unique(Combined_Weeks$date)-1, max(Combined_Weeks$date)+6)
+
+Data_to_work_with <- squire::format_output(fit_BMJ_mort, c("D"), date_0 = max(fit_BMJ_mort$pmcmc_results$inputs$data$date), reduce_age = F)
+
+DatesDesired %in% Data_to_work_with$date
+DatesDesired <- c(DatesDesired,max(Data_to_work_with$date, na.rm = T))
+
 Deaths <- squire::format_output(fit_BMJ_mort, c("D"), date_0 = max(fit_BMJ_mort$pmcmc_results$inputs$data$date), reduce_age = F) %>%
-  filter(date %in% c(unique(Combined_Weeks$date)-1, max(Combined_Weeks$date))) %>%
+  filter(date %in% DatesDesired) %>%
   group_by(replicate,age_group) %>%
   mutate(D = y,
          D_end = c(0,head(y,-1))) %>%
@@ -216,7 +264,7 @@ Model_Data_Comp <- Non_cov_deaths_est %>% group_by(age_group, replicate) %>%
             ) %>%
   ungroup() %>% group_by(age_group) %>%
   summarise(Mod_cd = mean(Mod_cd),
-            Mod_cd_Lus = mean(Mod_cd_Lus),
+             Mod_cd_Lus = mean(Mod_cd_Lus),
             tot_mort_deaths = mean(tot_mort_deaths),
             Mod_ncd = mean(Mod_ncd),
             Mod_pos_ncd = mean(Mod_pos_ncd),
