@@ -63,7 +63,7 @@ Test <- cma::fit_spline_rt(prob_non_severe_death_treatment = prob_non_severe_dea
                            icu_beds = 1e10,
                            prob_severe = rep(0,17),
                            dur_R = Inf,
-                           log_likelihood = calc_loglikelihood_pois_bin_bin_age_weeks_decline_08,
+                           log_likelihood = cma:::calc_loglikelihood_pois_bin_bin_age_weeks_decline_08,
                            lld = "ll_pois_bin",
                            # Combined PMP and Mort data
                            combined_data = Comb_data,
@@ -75,8 +75,9 @@ Test <- cma::fit_spline_rt(prob_non_severe_death_treatment = prob_non_severe_dea
 )
 
 
+Plots <- Diagnostic_Plot_08(fit_num = 1, fit_Model_list = list(Test), IFRvals = readRDS(file = "analysis/data/Code-generated-data/00_03_IFR_matrix_coefficients.rds")[1,])
 
-
+Plots$Infection_rate
 
 Test$pmcmc_results$chains$chain1$results$log_posterior
 Test$pmcmc_results$chains$chain1$results$log_likelihood

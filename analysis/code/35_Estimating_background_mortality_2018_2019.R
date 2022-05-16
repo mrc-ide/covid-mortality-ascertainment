@@ -108,6 +108,8 @@ mcmc <- run_mcmc(data = data_list,
 
 head(mcmc$output)
 
+
+
 plot_par(mcmc, show = "mu", phase = "burnin")
 plot_par(mcmc, show = "disp", phase = "burnin")
 

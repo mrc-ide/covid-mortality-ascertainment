@@ -4,14 +4,18 @@ library(tidyr)
 library(dplyr)
 library(reshape2)
 library(ggplot2)
-Res1 <- readRDS("../Bonus Files/2022-03-09_08_pois_bin_bin_decline_full_Just_Pois.rds")
-Res2 <- readRDS("../Bonus Files/2022-03-09_08_pois_bin_bin_decline_full")
+Res1 <- readRDS("../Bonus Files/2022-03-11_08_pois_bin_bin_decline_full_Just_Pois.rds")
+Res2 <- readRDS("../Bonus Files/2022-03-11_08_pois_bin_bin_decline_full.rds")
+# Res3 <- readRDS("../Bonus Files/2022-03-10_08_pois_bin_bin_decline_full_Just_Pois.rds")
 
 # readRDS("analysis/data/Code-generated-data/00_03_IFR_matrix_coefficients_log_scale.rds")
 
-Test1 <- Diagnostic_Plot_08(fit_num = 1, fit_Model_list = list(Res2[[1]]), IFRvals = readRDS("analysis/data/Code-generated-data/00_03_IFR_matrix_coefficients_log_scale.rds")[1,])
+# Test1 <- Diagnostic_Plot_08(fit_num = 1, fit_Model_list = list(Res1[[1]]), IFRvals = readRDS("analysis/data/Code-generated-data/00_03_IFR_matrix_coefficients_log_scale.rds"))
+# Test4 <- Diagnostic_Plot_08(fit_num = 1, fit_Model_list = list(Res3[[1]]), IFRvals = readRDS("analysis/data/Code-generated-data/00_03_IFR_matrix_coefficients_log_scale.rds")[1,])
 
-readRDS("analysis/data/Code-generated-data/00_03_Prob_Index_Vector_log_sc.rds")
+# Test4$Age_week
+
+# readRDS("analysis/data/Code-generated-data/00_03_Prob_Index_Vector_log_sc.rds")
 
 Plots1 <- lapply(1:length(Res1), FUN = Diagnostic_Plot_08, fit_Model_list = Res1, IFRvals = readRDS("analysis/data/Code-generated-data/00_03_IFR_matrix_coefficients_log_scale.rds")[readRDS("analysis/data/Code-generated-data/00_03_Prob_Index_Vector_log_sc.rds"),])
 Plots2 <- lapply(1:length(Res2), FUN = Diagnostic_Plot_08, fit_Model_list = Res2, IFRvals = readRDS("analysis/data/Code-generated-data/00_03_IFR_matrix_coefficients_log_scale.rds")[readRDS("analysis/data/Code-generated-data/00_03_Prob_Index_Vector_log_sc.rds"),])
@@ -40,11 +44,16 @@ get_Posterior <- function(model_fit){
   mean(unlist(list(PosC1,PosC2,PosC3)))
 }
 
-IFR_mat$AvPost <- NA
-IFR_mat$AvPost[IFR_vec] <- unlist(lapply(Res1, get_Posterior))
+# get_Posterior(Res1[[1]])
+# get_Likelihood(Res3[[1]])
 
-Res1$X1$pmcmc_results$chains$chain1$results$log_likelihood
-Res1$X1$pmcmc_results$chains$chain1$results$log_prior
+# tail(Res3$X1$pmcmc_results$chains$chain1$results$log_posterior)
+
+IFR_mat$AvPost <- NA
+IFR_mat$AvPost[IFR_vec] <- unlist(lapply(Res2, get_Posterior))
+
+# Res1$X1$pmcmc_results$chains$chain1$results$log_likelihood
+# Res1$X1$pmcmc_results$chains$chain1$results$log_prior
 
 ## Plot heatmap of Posteriors
 IFR_mat <- IFR_mat %>% mutate(Post_col_group = as.numeric(cut(round(AvPost),

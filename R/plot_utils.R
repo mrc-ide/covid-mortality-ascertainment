@@ -82,22 +82,25 @@ part_fit_plot <- function(fit){plot(fit, particle_fit = T) +
     xlim(as.Date("2020-04-15"), as.Date("2020-10-01")) + coord_cartesian(ylim=c(0, 50)) +
     theme(legend.position = "none")
 }
-pcr_fit_plot <- function(Summ_sero_fit){ggplot(Summ_sero_fit, aes(x = date, y = mean_pcr)) + geom_line(aes(x=date, y=mean_pcr),linetype="dashed") +
+pcr_fit_plot <- function(Summ_sero_fit){ggplot(Summ_sero_fit, aes(x = date, y = mean_pcr)) +
+    geom_line(aes(x=date, y=mean_pcr, color = "Model fit"),linetype="dashed") +
     geom_ribbon(aes(x=date,ymin=min_pcr, ymax=max_pcr), alpha=0.3)+
-    geom_point(aes(x= as.Date("2020-07-15"),y=7.6)) +
-    annotate("text", x=as.Date("2020-07-15")+5, y=7.6+0.5, label="Mulenga et al.", hjust =0) +
-    annotate("text", x=as.Date("2020-09-01"), y=2, label="Model fit", alpha=0.8) +
+    geom_point(aes(x= as.Date("2020-07-15"),y=7.6, color="\nData from\nMulenga et al.\n")) +
+    # annotate("text", x=as.Date("2020-07-15")+5, y=7.6+1, label="Mulenga et al.", hjust =0) +
+    # annotate("text", x=as.Date("2020-09-01"), y=2, label="Model fit", alpha=0.8) +
     geom_errorbar(aes(ymin=4.7,ymax=10.6,x=as.Date("2020-07-15"), width=10)) +
     geom_errorbarh(aes(xmin=as.Date("2020-07-04"),xmax=as.Date("2020-07-27"),y=7.6, height=0)) +
     ylab(paste0("PCR +ve %")) +
-    xlim(as.Date("2020-04-15"), as.Date("2020-10-01")) + coord_cartesian(ylim=c(0, 15)) +
+    xlim(as.Date("2020-04-15"), as.Date("2020-10-01")) +# coord_cartesian(ylim=c(0, 15)) +
+    xlab("Date")+
     theme_bw()} #+
     # ggtitle(paste("bin ll", round(mean(dbinom(x = round(0.076*2990), size = 2990, prob = filter(pcr_sero_data, date %in% as.Date(c("2020-07-15")))$mean_pcr/100,log = T)),1)))}
-sero_fit_plot <- function(Summ_sero_fit){ggplot(Summ_sero_fit, aes(x = date, y = mean_sero)) + geom_line(aes(x=date, y=mean_sero),linetype="dashed") +
+sero_fit_plot <- function(Summ_sero_fit){ggplot(Summ_sero_fit, aes(x = date, y = mean_sero)) +
+    geom_line(aes(x=date, y=mean_sero),linetype="dashed") +
     geom_ribbon(aes(x=date,ymin=min_sero, ymax=max_sero), alpha=0.3)+
     geom_point(aes(x= as.Date("2020-07-15"),y=2.1)) +
-    annotate("text", x=as.Date("2020-07-15")+5, y=2.1+0.5, label="Mulenga et al.", hjust =0) +
-    annotate("text", x=as.Date("2020-09-01"), y=max(Summ_sero_fit$max_sero), label="Model fit", alpha=0.8, hjust=0, vjust = 2) +
+    # annotate("text", x=as.Date("2020-07-15")+5, y=2.1+1, label="Mulenga et al.", hjust =0) +
+    # annotate("text", x=as.Date("2020-09-01"), y=max(Summ_sero_fit$max_sero), label="Model fit", alpha=0.8, hjust=0, vjust = 2) +
     geom_errorbar(aes(ymin=1.1,ymax=3.1,x=as.Date("2020-07-15"), width=10)) +
     geom_errorbarh(aes(xmin=as.Date("2020-07-04"),xmax=as.Date("2020-07-27"),y=2.1, height=0)) +
     # geom_point(aes(x= as.Date("2020-07-29"),y=10.6), color="darkblue") +
@@ -107,14 +110,15 @@ sero_fit_plot <- function(Summ_sero_fit){ggplot(Summ_sero_fit, aes(x = date, y =
     # geom_errorbarh(aes(xmin=as.Date("2020-07-18"),xmax=as.Date("2020-08-10"),y=10.6, height=0), color="darkblue") +
     ylab(paste0("Sero +ve %")) +
     annotate("text", x=as.Date("2020-05-01"), y=1.8, label=paste(""), color = "darkblue", hjust =0) +
-    xlim(as.Date("2020-04-15"), as.Date("2020-10-01")) + coord_cartesian(ylim=c(0, 20)) +
+    xlim(as.Date("2020-04-15"), as.Date("2020-10-01")) + #coord_cartesian(ylim=c(0, 20)) +
+    xlab("Date")+
     theme_bw()}
 
 combined_fit_plot <- function(Summ_sero_fit){ggplot(Summ_sero_fit, aes(x = date, y = mean_combined)) + geom_line(aes(x=date, y=mean_combined),linetype="dashed") +
     geom_ribbon(aes(x=date,ymin=min_combined, ymax=max_combined), alpha=0.3)+
     geom_point(aes(x= as.Date("2020-07-11"),y=9.1)) +
-    annotate("text", x=as.Date("2020-07-11")+5, y=9.1+0.5, label="Mulenga et al.", hjust =0) +
-    annotate("text", x=as.Date("2020-09-01"), y=max(Summ_sero_fit$max_combined), label="Model fit", alpha=0.8, hjust=0, vjust = 2) +
+    # annotate("text", x=as.Date("2020-07-11")+5, y=9.1+1, label="Mulenga et al.", hjust =0) +
+    # annotate("text", x=as.Date("2020-09-01"), y=max(Summ_sero_fit$max_combined), label="Model fit", alpha=0.8, hjust=0, vjust = 2) +
     geom_errorbar(aes(ymin=2.6,ymax=15.7,x=as.Date("2020-07-11"), width=10)) +
     geom_errorbarh(aes(xmin=as.Date("2020-07-04"),xmax=as.Date("2020-07-19"),y=9.1, height=0)) +
     # geom_point(aes(x= as.Date("2020-07-29"),y=10.6), color="darkblue") +
@@ -124,5 +128,118 @@ combined_fit_plot <- function(Summ_sero_fit){ggplot(Summ_sero_fit, aes(x = date,
     # geom_errorbarh(aes(xmin=as.Date("2020-07-18"),xmax=as.Date("2020-08-10"),y=10.6, height=0), color="darkblue") +
     ylab(paste0("Combined +ve %")) +
     # annotate("text", x=as.Date("2020-05-01"), y=1.8, label=paste(""), color = "darkblue", hjust =0) +
-    xlim(as.Date("2020-04-15"), as.Date("2020-10-01")) + coord_cartesian(ylim=c(0, 20)) +
+    xlim(as.Date("2020-04-15"), as.Date("2020-10-01")) + #coord_cartesian(ylim=c(0, 20)) +
+    xlab("Date")+
     theme_bw()}
+
+
+Plot_Heatmaps <- function(Mod_Res, Res_Figs, Select_Runs, Title){
+# browser()
+  IFR_mat <- readRDS("analysis/data/Code-generated-data/00_03_IFR_matrix_coefficients_log_scale.rds")
+  # IFR_vec <- 1:nrow(IFR_mat) %in% readRDS("analysis/data/Code-generated-data/00_03_Prob_Index_Vector_log_sc.rds")
+  # IFR_mat_fil <- IFR_mat[IFR_vec,]
+  # rownames(IFR_mat_fil) <- 1:nrow(IFR_mat_fil)
+  # IFR_mat_fil <- IFR_mat_fil %>% select(IFR_x, Slope_x)
+
+  # IFR_vec <- 1:nrow(IFR_mat) %in% Select_Runs  &  1:nrow(IFR_mat) %in% as.numeric(rownames(readRDS("~/Documents/Imperial/PostDoc/Zambia/covid-mortality-ascertainment/analysis/data/Code-generated-data/00_03_IFR_matrix_coefficients_log_scale.rds")[readRDS("~/Documents/Imperial/PostDoc/Zambia/covid-mortality-ascertainment/analysis/data/Code-generated-data/00_03_Prob_Index_Vector_log_sc.rds"),]))
+  IFR_vec <- 1:81 %in% Select_Runs
+  # readRDS("analysis/data/Code-generated-data/00_03_Prob_death_logical_log_sc.rds")
+
+
+# browser()
+
+  # IFR_mat$AvPost <- NA
+  # IFR_mat$AvPost[IFR_vec] <- unlist(lapply(Mod_Res, get_Posterior))
+  IFR_mat$AvPrior[IFR_vec] <- unlist(lapply(Mod_Res, get_Prior))
+  # IFR_mat$ll_bin[IFR_vec] <- unlist(lapply(Res_Figs, function(x){x$lls$ll_bin}))
+  # IFR_mat$ll_pois[IFR_vec] <- unlist(lapply(Res_Figs, function(x){x$lls$ll_pois}))
+  # IFR_mat$ll_pcr[IFR_vec] <- unlist(lapply(Res_Figs, function(x){x$lls$ll_pcr}))
+  # IFR_mat$ll_sero[IFR_vec] <- unlist(lapply(Res_Figs, function(x){x$lls$ll_sero}))
+  # IFR_mat$ll_comb[IFR_vec] <- unlist(lapply(Res_Figs, function(x){x$lls$ll_comb}))
+
+  IFR_mat$ll_bin[IFR_vec] <- unlist(lapply(Res_Figs, function(x){x$ll_bin}))
+  IFR_mat$ll_pois[IFR_vec] <- unlist(lapply(Res_Figs, function(x){x$ll_pois}))
+  IFR_mat$ll_pcr[IFR_vec] <- unlist(lapply(Res_Figs, function(x){x$ll_pcr}))
+  IFR_mat$ll_sero[IFR_vec] <- unlist(lapply(Res_Figs, function(x){x$ll_sero}))
+  IFR_mat$ll_comb[IFR_vec] <- unlist(lapply(Res_Figs, function(x){x$ll_comb}))
+
+
+  IFR_mat <- IFR_mat %>% mutate(AvPost = ll_bin + ll_pois + ll_comb + AvPrior)
+
+  IFR_mat <- IFR_mat %>% mutate(Post_col_group = as.numeric(cut(round(AvPost),
+                                                                breaks = c(-Inf, round(max(AvPost,na.rm = T))- c(500,200,100,50,20,12,8,4,0)),
+                                                                labels = as.character(c(1:9)))),
+                                Bin_col_group = as.numeric(cut(round(ll_bin),
+                                                               breaks = c(-Inf, round(max(ll_bin,na.rm = T))- c(500,200,100,50,20,12,8,4,0)),
+                                                               labels = as.character(c(1:9)))),
+                                Pois_col_group = as.numeric(cut(round(ll_pois),
+                                                                breaks = c(-Inf, round(max(ll_pois,na.rm = T))- c(500,200,100,50,20,12,8,4,0)),
+                                                                labels = as.character(c(1:9)))),
+                                pcr_col_group = as.numeric(cut(round(ll_pcr),
+                                                               breaks = c(-Inf, round(max(ll_pcr,na.rm = T))- c(500,200,100,50,20,12,8,4,0)),
+                                                               labels = as.character(c(1:9)))),
+                                sero_col_group = as.numeric(cut(round(ll_sero),
+                                                                breaks = c(-Inf, round(max(ll_sero,na.rm = T))- c(500,200,100,50,20,12,8,4,0)),
+                                                                labels = as.character(c(1:9)))),
+                                comb_col_group = as.numeric(cut(round(ll_comb),
+                                                                breaks = c(-Inf, round(max(ll_comb,na.rm = T))- c(500,200,100,50,20,12,8,4,0)),
+                                                                labels = as.character(c(1:9)))))
+
+  p1_post <- ggplot(IFR_mat, aes(x = as.factor(round(IFR_x,2)), y = as.factor(round(Slope_x,2)), fill = Post_col_group)) + geom_tile() +
+    geom_text(aes(label = round(AvPost), colour = (Post_col_group >= max(Post_col_group, na.rm=T))), size = 4) +
+    scale_colour_manual(values = c("white", "black")) +
+    ggtitle("Overall") + xlab("xIFR") + ylab("xSlope") +
+    labs(fill = "Mean Post") + theme(legend.position = "none") +
+    # xlim(0,2) + ylim(0,2) +
+    scale_fill_viridis_c()
+
+
+  p2_bin <- ggplot(IFR_mat, aes(x = as.factor(round(IFR_x,2)), y = as.factor(round(Slope_x,2)), fill = Bin_col_group)) + geom_tile() +
+    geom_text(aes(label = round(ll_bin), colour = (Bin_col_group >= max(Bin_col_group, na.rm=T))), size = 4) +
+    scale_colour_manual(values = c("white", "black")) +
+    ggtitle("C19 prevalence in post-mortem samples") + xlab("xIFR") + ylab("xSlope") +
+    labs(fill = "Mean ll bin") + theme(legend.position = "none") +
+    # xlim(0,2) + ylim(0,2) +
+    scale_fill_viridis_c()
+
+  p3_pois <- ggplot(IFR_mat, aes(x = as.factor(round(IFR_x,2)), y = as.factor(round(Slope_x,2)), fill = Pois_col_group)) + geom_tile() +
+    geom_text(aes(label = round(ll_pois), colour = (Pois_col_group >= max(Pois_col_group, na.rm=T))), size = 4) +
+    scale_colour_manual(values = c("white", "black")) +
+    ggtitle("Mortuary arrival rate") + xlab("xIFR") + ylab("xSlope") +
+    labs(fill = "Mean ll pois") + theme(legend.position = "none") +
+    # xlim(0,2) + ylim(0,2) +
+    scale_fill_viridis_c()
+
+  # p4_pcr <- ggplot(IFR_mat, aes(x = as.factor(round(IFR_x,2)), y = as.factor(round(Slope_x,2)), fill = pcr_col_group)) + geom_tile() +
+  #   geom_text(aes(label = round(ll_pcr), colour = (pcr_col_group >= max(pcr_col_group, na.rm=T))), size = 4) +
+  #   scale_colour_manual(values = c("white", "black")) +
+  #   ggtitle("ll bin pcr") + xlab("xIFR") + ylab("xSlope") +
+  #   labs(fill = "Mean ll bin pcr") + theme(legend.position = "none") +
+  #   # xlim(0,2) + ylim(0,2) +
+  #   scale_fill_viridis_c()
+  #
+  # p5_sero <- ggplot(IFR_mat, aes(x = as.factor(round(IFR_x,2)), y = as.factor(round(Slope_x,2)), fill = sero_col_group)) + geom_tile() +
+  #   geom_text(aes(label = round(ll_sero), colour = (sero_col_group >= max(sero_col_group, na.rm=T))), size = 4) +
+  #   scale_colour_manual(values = c("white", "black")) +
+  #   ggtitle("ll bin sero") + xlab("xIFR") + ylab("xSlope") +
+  #   labs(fill = "Mean ll bin sero") + theme(legend.position = "none") +
+  #   # xlim(0,2) + ylim(0,2) +
+  #   scale_fill_viridis_c()
+
+  p6_comb <- ggplot(IFR_mat, aes(x = as.factor(round(IFR_x,2)), y = as.factor(round(Slope_x,2)), fill = comb_col_group)) + geom_tile() +
+    geom_text(aes(label = round(ll_comb), colour = (comb_col_group >= max(comb_col_group, na.rm=T))), size = 4) +
+    scale_colour_manual(values = c("white", "black")) +
+    ggtitle("Population prevalence survey") + xlab("xIFR") + ylab("xSlope") +
+    labs(fill = "Mean ll bin comb") + theme(legend.position = "none") +
+    # xlim(0,2) + ylim(0,2) +
+    scale_fill_viridis_c()
+
+  title_gg <- ggplot() +
+    labs(title = Title)
+  # browser()
+  Figure1 <- cowplot::plot_grid(title_gg, cowplot::plot_grid(p1_post, p3_pois, p2_bin, p6_comb), ncol = 1, rel_heights = c(0.03, 1))+
+  ggpubr::theme_pubr()
+
+  # return(list(p1_post, p2_bin, p3_pois, p4_pcr, p5_sero, p6_comb))
+}
+

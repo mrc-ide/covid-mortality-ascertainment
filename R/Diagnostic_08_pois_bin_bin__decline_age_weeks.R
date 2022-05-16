@@ -58,7 +58,7 @@ Mod_Age_Deaths_Lus_Av <- Mod_Age_Deaths_Lus %>% group_by(Week_gr, Replicate) %>%
   merge(Mod_Age_Deaths_Lus) %>%
   mutate(Pos_prev = ifelse(Mod_pos_ds_Lus/Mort_deaths>=1, 0.999999, Mod_pos_ds_Lus/Mort_deaths),
          Mod_tot_ds_Mort_sc = Mod_tot_ds_Mort*ag1std) %>%
-  # filter(Week_gr != 4) %>%
+  filter(Week_gr != 4) %>%
   mutate(ll_bin = dbinom(x = PosTests, size = Samples, prob = Pos_prev, log = T),
          ll_pois = dpois(x = Mort_deaths, lambda = Mod_tot_ds_Mort_sc, log = T)) %>%
   group_by(Age_gr, Week_gr, date,Mort_deaths,Samples,PosTests) %>%

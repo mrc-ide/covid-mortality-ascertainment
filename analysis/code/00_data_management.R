@@ -10,7 +10,7 @@ devtools::load_all()
 ### 1. Official Lusaka Province/District Death Data
 ###################################################
 df_Off_Lu <- read.csv(file = "analysis/data/raw/00_official_reports_covid_zambia.csv") %>%
-  mutate(date = as.Date(Date), deaths = Mort_deaths)
+  mutate(date = as.Date(Date), deaths = Total_Deaths)
 
 ## Filter deaths for Lusaka PROVINCE until November 2020
 df_Off_Lu_Prov <- df_Off_Lu %>%
@@ -38,6 +38,9 @@ missing_dates_D <- date_list_D[!date_list_D %in% df_Off_Lu_Dist$date]
 df_Off_Lu_Dist <- add_row(df_Off_Lu_Dist, date = missing_dates_D, deaths = 0) %>% arrange(date)
 # Save
 saveRDS(object = df_Off_Lu_Dist, file = "analysis/data/Code-generated-data/00_01_Lusaka_Dist_Deaths_Official.rds")
+plot(df_Off_Lu_Dist, pch = 20, xlab = "Date", ylab = "Deaths")
+abline(v = as.Date("2020-06-15"), col = "red", lty = 2)
+abline(v = as.Date("2020-10-05"), col = "red", lty = 2)
 ###################################################
 ###################################################
 
@@ -102,7 +105,14 @@ prob_death_tot <- Zmb_p$prob_severe * Zmb_p$prob_severe_death_treatment +
 # Calculate IFR for each age group: multiply probability of death of a case by probability hospitalised
 IFR_Age <- 100*(Zmb_p$prob_hosp * prob_death_tot)
 IFR_Age_gr <- seq(2.5, 82.5, by = 5)
-IFR_Coefs <- lm(log(IFR_Age) ~ seq(2.5, 82.5, by = 5))$coefficients
+IFR_Coefs <- lm(log(IFR_Age) ~ IFR_Age_gr)$coefficients
+# plot(x = IFR_Age_gr, y = log(IFR_Age))
+# abline(lm(log(IFR_Age) ~ seq(2.5, 82.5, by = 5)))
+# points(x = IFR_Age_gr, y = log(IFR_Age_var_slope_int[41,]), col = 2)
+
+# plot(x = IFR_Age_gr, y = IFR_Age)
+# points(x = IFR_Age_gr, y = IFR_Age_var_slope_int[41,], col = 2)
+
 # Save
 # saveRDS(prob_death_tot, "analysis/data/Code-generated-data/00_03_Tot_Prob_Death_By_Age_Zam.rds")
 saveRDS(list(Prob_death_when_hospitalised = prob_death_tot, IFR_Age_gr = IFR_Age_gr, IFR_Age = IFR_Age, IFR_Coefs = IFR_Coefs), "analysis/data/Code-generated-data/00_03_IFR_values_Brazeau.rds")
@@ -128,7 +138,7 @@ IFR_mat <- IFR_mat %>% mutate(IFR_abs = IFR_x * sum(IFR_Age * pop_st_lu/sum(pop_
 IFR_mat$Int_abs <- apply(IFR_mat, 1, function(x){
   Int_calc(IFR = x["IFR_abs"], Slope = x["Slope_abs"], Age_grs = IFR_Age_gr, Pop_str = pop_st_lu)
 })
-saveRDS(IFR_mat, "analysis/data/Code-generated-data/00_03_IFR_matrix_coefficients_log_scale.rds")
+# saveRDS(IFR_mat, "analysis/data/Code-generated-data/00_03_IFR_matrix_coefficients_log_scale.rds")
 IFR_mat <- readRDS("analysis/data/Code-generated-data/00_03_IFR_matrix_coefficients_log_scale.rds")
 ##
 
@@ -138,28 +148,43 @@ IFR_Age_var_slope_int <- t(apply(IFR_mat, 1, function(x){
 }))
 
 # Make sure that none of the probabilities are higher than 1
-IFR_vals_1 <- apply(IFR_Age_var_slope_int, MARGIN = 1, FUN = function(x){x/(100*parameters_explicit_SEEIR("Zambia")$prob_hosp)
+IFR_vals_1 <- !apply(IFR_Age_var_slope_int, MARGIN = 1, FUN = function(x){x/(100*parameters_explicit_SEEIR("Zambia")$prob_hosp)
   return(max(x/(100*parameters_explicit_SEEIR("Zambia")$prob_hosp)))})>1
-IFR_Age_var_slope_int_fil <- IFR_Age_var_slope_int[!IFR_vals_1,]
-IFR_mat_fil_coefficients <- IFR_mat[!IFR_vals_1,]
-rownames(IFR_mat_fil) <- 1:nrow(IFR_mat_fil)
-Prob_Death_Matrix <- as.list(data.frame(apply(IFR_Age_var_slope_int_fil,1, function(x){x/(100*squire::parameters_explicit_SEEIR("Zambia")$prob_hosp)})))
-Prob_Index_Vector <- (1:length(IFR_vals_1))[!IFR_vals_1]
 
-cbind(readRDS("analysis/data/Code-generated-data/00_03_IFR_matrix_coefficients.rds")[readRDS("analysis/data/Code-generated-data/00_03_Prob_Index_Vector.rds"),],1:72)
+Prob_death_logical <- IFR_vals_1
+Prob_deaths_index <- which(IFR_vals_1)
+Prob_Death_List <- as.list(data.frame(apply(IFR_Age_var_slope_int,1, function(x){x/(100*squire::parameters_explicit_SEEIR("Zambia")$prob_hosp)})))
+
+# min(IFR_Age_var_slope_int[,1])
+
+# min(IFR_Age_var_slope_int[,1])/(100*squire::parameters_explicit_SEEIR("Zambia")$prob_hosp[1])
+
+# saveRDS(Prob_death_logical, "analysis/data/Code-generated-data/00_03_Prob_death_logical_log_sc.rds")
+# saveRDS(Prob_deaths_index, "analysis/data/Code-generated-data/00_03_Prob_deaths_index_log_sc.rds")
+# saveRDS(Prob_Death_List, "analysis/data/Code-generated-data/00_03_Prob_Death_List_log_sc.rds")
+
+
+# Prob_Death_Matrix <- as.list(data.frame(apply(IFR_Age_var_slope_int_fil,1, function(x){x/(100*squire::parameters_explicit_SEEIR("Zambia")$prob_hosp)})))
+# IFR_Age_var_slope_int_fil <- IFR_Age_var_slope_int[!IFR_vals_1,]
+# IFR_mat_fil_coefficients <- IFR_mat[!IFR_vals_1,]
+# rownames(IFR_mat_fil) <- 1:nrow(IFR_mat_fil)
+# Prob_Death_Matrix <- as.list(data.frame(apply(IFR_Age_var_slope_int_fil,1, function(x){x/(100*squire::parameters_explicit_SEEIR("Zambia")$prob_hosp)})))
+# Prob_Index_Vector <- (1:length(IFR_vals_1))[!IFR_vals_1]
+
+# cbind(readRDS("analysis/data/Code-generated-data/00_03_IFR_matrix_coefficients.rds")[readRDS("analysis/data/Code-generated-data/00_03_Prob_Index_Vector.rds"),],1:72)
 # saveRDS(Prob_Death_Matrix, "analysis/data/Code-generated-data/00_03_Prob_Death_Matrix_log_sc.rds")
 # saveRDS(Prob_Index_Vector, "analysis/data/Code-generated-data/00_03_Prob_Index_Vector_log_sc.rds")
 
-length(readRDS("analysis/data/Code-generated-data/00_03_Prob_Index_Vector.rds"))
-readRDS("analysis/data/Code-generated-data/00_03_Prob_Death_Matrix.rds")
-readRDS("analysis/data/Code-generated-data/IFR_mat_Ints2.rds")
-IFR_mat[1,]
-IFR_Age_var_slope_int[1,]
-Prob_Death_Matrix[1]
+# length(readRDS("analysis/data/Code-generated-data/00_03_Prob_Index_Vector.rds"))
+# readRDS("analysis/data/Code-generated-data/00_03_Prob_Death_Matrix_log_sc.rds")
+# readRDS("analysis/data/Code-generated-data/IFR_mat_Ints2.rds")
+# IFR_mat[1,]
+# IFR_Age_var_slope_int[1,]
+# Prob_Death_Matrix[1]
 
 # Calculate total IFR:
-# IFR_Sum_Zam <- sum(IFR_Age * get_population("Zambia")$n/sum(get_population("Zambia")$n))
-# IFR_Sum_Lus <- sum(IFR_Age * pop_st_lu_dist/sum(pop_st_lu_dist))
+IFR_Sum_Zam <- sum(IFR_Age * get_population("Zambia")$n/sum(get_population("Zambia")$n))
+IFR_Sum_Lus <- sum(IFR_Age*1.25 * pop_st_lu/sum(pop_st_lu))
 # saveRDS(list(IFR_Sum_Zam = IFR_Sum_Zam, IFR_Sum_Lus = IFR_Sum_Lus), "analysis/data/Code-generated-data/00_03c_Total_IFR_Zambia_Lusaka.rds")
 ##############################################
 # sum(100*(Zmb_p$prob_hosp * prob_death_tot)* get_population("United Kingdom")$n/sum(get_population("United Kingdom")$n))
@@ -421,17 +446,163 @@ p1 <- ggplot(df_MPM, aes(x = date, y = Samples)) + geom_point(colour = "black") 
 ##############################################
 
 UTH_Mortality_Total <- read.csv(file = "analysis/data/raw/BMJ_UTH_excess_mortality/mortuary_records.csv")
-UTH_Mortality_Total <- UTH_Mortality_Total %>% mutate(date = as.Date(dod, "%m/%d/%y"))
+UTH_Mortality_Total <- UTH_Mortality_Total %>%
+  filter(age_years !=".",
+         dod !=".") %>%
+  mutate(date = as.Date(dod, "%m/%d/%y"),
+         Age_gr = cut(as.numeric(age_years), c(seq(0,80,by = 5),Inf), right = F, labels = F)) %>%
+  select(-sex, -dod, -age_years)
 
-UTH_deaths_by_age <- UTH_Mortality_Total %>% filter(dod != ".") %>%
-  filter(date >= "2020-06-15" & date < "2020-10-05", age_years !=".") %>%
-  mutate(Age_gr = cut(as.numeric(age_years), c(seq(0,80,by = 5),Inf), right = F, labels = F)) %>%
+## Plot all data by weekly deaths:
+UTH_Mortality_Total_Weeks_Since_2019 <- UTH_Mortality_Total %>%
+  filter(date >="2019-01-01") %>%
+  group_by(date,Age_gr) %>%
+  summarise(Mort_deaths = length(date), date = min(date)) %>%
+  ungroup() %>%
+  tidyr::complete(Age_gr, date, fill = list(Mort_deaths = 0)) %>%
+  mutate(Week_gr = cut.Date(date, breaks = "1 week", labels = FALSE)) %>%
+  group_by(Week_gr, Age_gr) %>%
+  summarise(Mort_deaths = sum(Mort_deaths), date = min(date))
+
+Age_groups.labs <- c(paste0("Age: ", c("0-4","5-9","10-14","15-19","20-24","25-29",
+                                       "30-34","35-39","40-44","45-49","50-54","55-59",
+                                       "60-64","65-69","70-74","75-79","80+")))
+names(Age_groups.labs) <- 1:17
+
+U5_trends <- UTH_Mortality_Total_Weeks_Since_2019 %>% filter(Age_gr==1) %>%
+  select(Week_gr, Mort_deaths) %>%
+  rename(U5_mort_deaths = Mort_deaths)
+
+UTH_Mortality_Total_Weeks_Since_2019 <- UTH_Mortality_Total_Weeks_Since_2019 %>% merge(U5_trends) %>%
+  mutate(Standardised_mort = Mort_deaths/U5_mort_deaths)
+
+p_mort_2018_2019 <- ggplot(UTH_Mortality_Total_Weeks_Since_2019 %>% filter(Age_gr!=1), aes(x = date, y = Standardised_mort)) +
+  # geom_point() +
+  geom_line() +
+  facet_wrap(~Age_gr, labeller = labeller(Age_gr = Age_groups.labs), scales = "free_y", nrow = 4) +
+  geom_vline(xintercept = as.Date(c("2020-06-15","2020-10-05")), col = "darkred", linetype =2) +
+  ylab("Standardised weekly deaths") +
+  xlab("Date") +
+  theme_minimal()
+
+pdf("analysis/figures/00_07_01_Mortuary_Weekly_Deaths_All_Data_Since_2019.pdf", width = 15)
+p_mort_2018_2019
+dev.off()
+
+tiff("analysis/figures/00_07_01_Mortuary_Weekly_Deaths_All_Data_Since_2019.tiff", width = 12, height = 7, res = 300, units = "in")
+p_mort_2018_2019
+# ggpubr::theme_pubr(legend = "bottom", x.text.angle = 90)
+dev.off()
+
+
+
+UTH_Mortality_Total_2018_2019 <- UTH_Mortality_Total %>%
+  filter(date >="2018-01-01", date<"2020-01-05") %>%
+  group_by(date,Age_gr) %>% summarise(Mort_deaths = length(date)) %>% ungroup() %>%
+  tidyr::complete(date, Age_gr, fill = list(Mort_deaths = 0))
+
+readRDS("analysis/data/Code-generated-data/00_07_Mortuary_data_age_weeks.rds") %>%
+  complete(Age_gr, Week_gr, fill = list(deaths=0))
+p7_1 <- ggplot(data = UTH_Mortality_Total_2018_2019, aes(x = date, y = Mort_deaths)) +
+  geom_vline(xintercept = as.Date(c("2018-01-01","2019-01-01","2020-01-01")), col = "darkred", linetype =2) +
+  geom_vline(xintercept = as.Date(c("2018-07-01","2019-07-01")), col = "darkred", linetype =3) +
+  geom_point(size = 0.5) +
+  geom_smooth() +
+  facet_wrap(~Age_gr, labeller = labeller(Age_gr = Age_groups.labs)) +
+  ggpubr::theme_pubr(legend = "bottom", x.text.angle = 90) + xlab("Date") + ylab("Daily mortuary deaths")
+
+UTH_Mortality_Total_2018_2019_Weeks <- UTH_Mortality_Total_2018_2019 %>%
+  mutate(Week_gr = cut.Date(date, breaks = "1 week", labels = FALSE)) %>%
+  group_by(Week_gr, Age_gr) %>%
+  summarise(Mort_deaths = sum(Mort_deaths), date = min(date))
+
+p7_2 <- ggplot(data = UTH_Mortality_Total_2018_2019_Weeks, aes(x = date, y = Mort_deaths)) +
+  geom_vline(xintercept = as.Date(c("2018-01-01","2019-01-01","2020-01-01")), col = "darkred", linetype =2) +
+  geom_vline(xintercept = as.Date(c("2018-07-01","2019-07-01")), col = "darkred", linetype =3) +
+  geom_point(aes(color = "Weekly deaths"), size = 0.5) +
+  geom_smooth(aes(color = "LOESS smoothed line")) +
+  facet_wrap(~Age_gr, labeller = labeller(Age_gr = Age_groups.labs)) +
+  ggpubr::theme_pubr(legend = "bottom", x.text.angle = 90) + xlab("Date") + ylab("Weekly mortuary deaths") +
+  ggtitle("Mortuary deaths 2018-2019") +
+  scale_color_manual(NULL, breaks = c("Weekly deaths", "LOESS smoothed line"), values = c("black", "blue"),
+                     guide = guide_legend(override.aes = list(linetype = c(NA, 1),
+                                                              fill = c(NA,"darkgrey"))))
+
+
+
+UTH_Mortality_Total_Study_Period_2020 <- UTH_Mortality_Total %>%
+  filter(date >="2020-01-01", date<="2020-12-31") %>%
+  # filter(date >="2020-06-01", date<"2020-10-20") %>%
+  group_by(date,Age_gr) %>% summarise(Mort_deaths = length(date)) %>% ungroup() %>%
+  tidyr::complete(date, Age_gr, fill = list(Mort_deaths = 0))
+
+p7_3 <- ggplot(data = UTH_Mortality_Total_Study_Period_2020, aes(x = date, y = Mort_deaths)) +
+  # geom_vline(xintercept = as.Date(c("2018-01-01","2019-01-01","2020-01-01")), col = "darkred", linetype =2) +
+  # geom_vline(xintercept = as.Date(c("2018-07-01","2019-07-01")), col = "darkred", linetype =3) +
+  geom_point(size = 0.5) +
+  geom_smooth() +
+  facet_wrap(~Age_gr, labeller = labeller(Age_gr = Age_groups.labs)) +
+  ggpubr::theme_pubr(legend = "bottom", x.text.angle = 90) + xlab("Date") + ylab("Daily mortuary deaths")
+
+UTH_Mortality_Total_Study_Period_2020_Weeks <- UTH_Mortality_Total_Study_Period_2020 %>%
+  mutate(Week_gr = cut.Date(date, breaks = "1 week", labels = FALSE)) %>%
+  group_by(Week_gr, Age_gr) %>%
+  summarise(Mort_deaths = sum(Mort_deaths), date = min(date))
+
+UTH_Mortality_Total_2018_2019_Weeks_Av_Age <- UTH_Mortality_Total_2018_2019_Weeks %>% group_by(Age_gr) %>%
+  summarise(Av_deaths_Age = mean(Mort_deaths))
+
+p7_4 <- ggplot(data = UTH_Mortality_Total_Study_Period_2020_Weeks, aes(x = date, y = Mort_deaths)) +
+  geom_vline(aes(xintercept = as.Date(c("2020-06-15"))), linetype =2) +
+  geom_vline(aes(xintercept = as.Date(c("2020-10-04"))), linetype =2) +
+  # geom_vline(xintercept = as.Date(c("2018-07-01","2019-07-01")), col = "darkred", linetype =3) +
+  geom_smooth(aes(alpha = "LOESS smoothed line")) +
+  facet_wrap(~Age_gr, labeller = labeller(Age_gr = Age_groups.labs)) +
+  ggpubr::theme_pubr(legend = "bottom", x.text.angle = 90) + xlab("Date") + ylab("Weekly mortuary deaths") +
+  geom_hline(data = UTH_Mortality_Total_2018_2019_Weeks_Av_Age, aes(yintercept = Av_deaths_Age, alpha = "Mean 2018-2019 deaths"), linetype = 1, color = "darkred") +
+  geom_point(aes(alpha = "Weekly deaths"), size = 0.5) +
+  ggtitle("Mortuary deaths 2020") +
+  scale_alpha_manual(NULL, breaks = c("Weekly deaths", "LOESS smoothed line", "Mean 2018-2019 deaths"), values = c(1,1,1),
+                     guide = guide_legend(override.aes = list(color = c("black", "blue", "darkred"),
+                                                              linetype = c(NA, 1, 1),
+                                                              # linewidth = c(NA, 1, 0.5),
+                                                              fill = c(NA,"darkgrey",NA))))
+
+p7_5 <- ggplot(data = UTH_Mortality_Total_Study_Period_2020_Weeks %>% filter(date >="2020-06-01", date<"2020-10-20"), aes(x = date, y = Mort_deaths)) +
+  geom_vline(aes(xintercept = as.Date(c("2020-06-15"))), linetype =2) +
+  geom_vline(aes(xintercept = as.Date(c("2020-10-04"))), linetype =2) +
+  # geom_vline(xintercept = as.Date(c("2018-07-01","2019-07-01")), col = "darkred", linetype =3) +
+  geom_smooth(aes(alpha = "LOESS smoothed line")) +
+  facet_wrap(~Age_gr, labeller = labeller(Age_gr = Age_groups.labs)) +
+  ggpubr::theme_pubr(legend = "bottom", x.text.angle = 90) + xlab("Date") + ylab("Weekly mortuary deaths") +
+  geom_hline(data = UTH_Mortality_Total_2018_2019_Weeks_Av_Age, aes(yintercept = Av_deaths_Age, alpha = "Mean 2018-2019 deaths"), linetype = 1, color = "darkred") +
+  geom_point(aes(alpha = "Weekly deaths"), size = 0.5) +
+  ggtitle("Mortuary deaths 2020") +
+  scale_alpha_manual(NULL, breaks = c("Weekly deaths", "LOESS smoothed line", "Mean 2018-2019 deaths"), values = c(1,1,1),
+                     guide = guide_legend(override.aes = list(color = c("black", "blue", "darkred"),
+                                                              linetype = c(NA, 1, 1),
+                                                              # linewidth = c(NA, 1, 0.5),
+                                                              fill = c(NA,"darkgrey",NA))))
+                                                              # shape =c(16,NA,NA))))
+
+
+
+
+
+## Plot mortality data 2018-2019
+## Plot mortality data during study period
+
+
+
+UTH_deaths_by_age <- UTH_Mortality_Total %>% #filter(date != ".") %>%
+  # filter(date >= "2020-06-01" & date < "2020-11-01")
+  filter(date >= "2020-06-15" & date < "2020-10-05") %>%
   group_by(date,Age_gr) %>% summarise(Mort_deaths = length(date)) %>%
   ungroup %>%
   tidyr::complete(date, Age_gr, fill = list(Mort_deaths = 0))
-  # filter(date >= "2020-06-15" & date <= "2020-11-01")
+# filter(date >= "2020-06-15" & date <= "2020-11-01")
 
-UTH_deaths_by_date <- UTH_Mortality_Total %>% filter(dod != ".") %>%
+UTH_deaths_by_date <- UTH_Mortality_Total %>% #filter(dod != ".") %>%
   group_by(date) %>% summarise(Mort_deaths = length(date)) %>%
   # filter(date >= "2020-06-15" & date <= "2020-11-01")
   filter(date >= "2020-06-15" & date <= "2020-10-05")
@@ -465,6 +636,16 @@ UTH_Mortality_Weeks <- UTH_Mortality_Total %>% filter(date>="2020-06-15" & date<
 
 saveRDS(object = UTH_Mortality_Weeks, file = "analysis/data/Code-generated-data/00_07_Mortuary_data_weeks.rds")
 
+UTH_Mortality_Age_Weeks <- UTH_Mortality_Total %>% filter(date>="2020-06-15" & date<"2020-10-05") %>%
+  mutate(#Age_gr = cut(as.numeric(age_years), c(seq(0,80,by = 5),Inf), right = F, labels = F),
+         Week_gr = cut.Date(date, breaks = "1 week", labels = FALSE)) %>%
+  group_by(Week_gr, Age_gr) %>%
+  summarise(deaths = length(date))%>%
+  ungroup() %>%
+  complete(Week_gr, Age_gr, fill = list(deaths = 0))
+
+saveRDS(object = UTH_Mortality_Age_Weeks, file = "analysis/data/Code-generated-data/00_07_Mortuary_data_age_weeks.rds")
+
 
 ##############################################
 ##############################################
@@ -473,25 +654,25 @@ saveRDS(object = UTH_Mortality_Weeks, file = "analysis/data/Code-generated-data/
 
 
 ##############################################
-### 8. Combined Mortuary, post-mortem data
+### OLD 8. Combined Mortuary, post-mortem data
 ##############################################
 
-Combined_Dates <- merge(df_MPM_Date_age, UTH_deaths_by_age, all = T) %>% replace_na(list(Mort_deaths = 0, Samples = 0, CT_45_Either = 0, CT_40_Either = 0)) %>%
-  complete(Age_gr, date, fill = list(Mort_deaths = 0, Samples = 0, CT_45_Either = 0, CT_40_Either = 0))
-
-Combined_Weeks <- Combined_Dates %>% mutate(Week_gr = cut.Date(x = date, breaks = "weeks", labels = F)) %>%
-  group_by(Week_gr, Age_gr) %>% summarise(date = head(date,1),
-                                            Mort_deaths = sum(Mort_deaths),
-                                            Samples = sum(Samples),
-                                            CT_45_Either = sum(CT_45_Either),
-                                            CT_40_Either = sum(CT_40_Either)) %>%
-  ungroup %>% tidyr::complete(Age_gr, nesting(Week_gr,date), fill = list(Mort_deaths = 0, Samples = 0, CT_45_Either = 0, CT_40_Either = 0))
-
-Combined_Weeks[Combined_Weeks$Week_gr==4, "Mort_deaths"] <-
-  Combined_Weeks[Combined_Weeks$Week_gr %in% c(3,5), c("Age_gr","Week_gr","Mort_deaths")] %>% group_by(Age_gr) %>%
-  summarise(Mort_deaths = round(mean(Mort_deaths))) %>% select(Mort_deaths)
-
-saveRDS(object = Combined_Weeks, file = "analysis/data/Code-generated-data/00_08_Combined_mortuary_postmortem_data.rds")
+# Combined_Dates <- merge(df_MPM_Date_age, UTH_deaths_by_age, all = T) %>% replace_na(list(Mort_deaths = 0, Samples = 0, CT_45_Either = 0, CT_40_Either = 0)) %>%
+#   complete(Age_gr, date, fill = list(Mort_deaths = 0, Samples = 0, CT_45_Either = 0, CT_40_Either = 0))
+#
+# Combined_Weeks <- Combined_Dates %>% mutate(Week_gr = cut.Date(x = date, breaks = "weeks", labels = F)) %>%
+#   group_by(Week_gr, Age_gr) %>% summarise(date = head(date,1),
+#                                             Mort_deaths = sum(Mort_deaths),
+#                                             Samples = sum(Samples),
+#                                             CT_45_Either = sum(CT_45_Either),
+#                                             CT_40_Either = sum(CT_40_Either)) %>%
+#   ungroup %>% tidyr::complete(Age_gr, nesting(Week_gr,date), fill = list(Mort_deaths = 0, Samples = 0, CT_45_Either = 0, CT_40_Either = 0))
+#
+# Combined_Weeks[Combined_Weeks$Week_gr==4, "Mort_deaths"] <-
+#   Combined_Weeks[Combined_Weeks$Week_gr %in% c(3,5), c("Age_gr","Week_gr","Mort_deaths")] %>% group_by(Age_gr) %>%
+#   summarise(Mort_deaths = round(mean(Mort_deaths))) %>% select(Mort_deaths)
+#
+# saveRDS(object = Combined_Weeks, file = "analysis/data/Code-generated-data/00_08_Combined_mortuary_postmortem_data.rds")
 
 
 
@@ -599,39 +780,102 @@ saveRDS(MixMatrix, file = "analysis/data/Code-generated-data/00_11_Nyanga_Mixing
 ##############################################
 ### 12. BMJData Full Data 2
 ##############################################
+
+## Explanation of dataset
+# COVID19: 1 (55): covid positive using strict definition (Two tests CT<40)
+# COVID19: 0 (308): covid negative using strict definition (Two tests CT<40)
+# COVID19: "." (10): not matched to enrollments: (I need to filter these)
+# That means that there 363 usable tests out of 373.
+
+# COVID19_combined: 2 (58): clear positive results, including antemortem positive (+3).
+# COVID19_combined: 1 (12): indeterminate results
+# COVID19_combined: 0 (295): Lost 1 to antemortem pos
+# COVID19_combined: "." (8): Lost 2 to antemortem pos
+
+# covid19_am: 3 (85)
+# covid19_am: 2 (7)
+# covid19_am: 1 (4)
+# covid19_am: "." (277)
+
+# covid19_pm: 2 (55): Clear positive results
+# covid19_pm: 1 (12): Indeterminate results
+# covid19_pm: 0 (296): Negative results
+# covid19_pm: "." (10): not matched to enrollment.
+
+# biddth: 1 (276): It is likely that these are brought in dead
+# biddth: 2 (97): It is likely that these are hospital deaths
+
+# gender: 1 (145): it is likely that these are female.
+# gender: 2 (228): it is likely that these are male
+
+# Q: Why is row 148 given a negative result? It has one positive test <40. Surely this should be an indeterminate result, also row 82, 79?
+
 df <- readxl::read_xlsx(path = "analysis/data/raw/covid results first paper.xlsx")
-df <- df %>% select(sampleid, deceased_date, COVID19, covid19_combined, N1_CT_1,N2_CT_1,NG_CT_1,OR_CT_1, age_death) %>%
-  rename(date = deceased_date)
 
-df_1 <- df %>% mutate(N1_CT_1 = ifelse(N1_CT_1 != ".", T, F),
-                      N2_CT_1 = ifelse(N2_CT_1 != ".", T, F),
-                      NG_CT_1 = ifelse(NG_CT_1 != ".", T, F),
-                      OR_CT_1 = ifelse(OR_CT_1 != ".", T, F),
-                      date = as.Date(date)) %>%
-  mutate(PosTests = N1_CT_1 + N2_CT_1 + NG_CT_1 + OR_CT_1) %>%
-  select(sampleid, date, COVID19, covid19_combined, PosTests, age_death)
+df %>% filter(covid19_combined == ".") %>% pull(age_death)
 
-df_2 <- df %>% mutate(N1_CT_1 = ifelse(N1_CT_1 != "." & N1_CT_1<40, T, F),
-                      N2_CT_1 = ifelse(N2_CT_1 != "." & N1_CT_1<40, T, F),
-                      NG_CT_1 = ifelse(NG_CT_1 != "." & N1_CT_1<40, T, F),
-                      OR_CT_1 = ifelse(OR_CT_1 != "." & N1_CT_1<40, T, F)) %>%
-  mutate(PosTests_Strict = N1_CT_1 + N2_CT_1 + NG_CT_1 + OR_CT_1) %>%
-  select(sampleid,date, COVID19, covid19_combined, PosTests_Strict, age_death)
 
-df <- merge(df_1, df_2, all = T) %>%
-  mutate(Age_gr = cut(as.numeric(age_death), c(seq(0,80,by = 5),Inf), right = F, labels = F)) %>% select(-age_death)
 
-df_Date <- df %>% group_by(date, Age_gr) %>%
-  summarise(Samples = length(PosTests),
-            PosTests = sum(ifelse(PosTests !=0,T,F)),
-            PosTests_Strict = sum(ifelse(PosTests_Strict >=2,T,F))) %>%
+df <- df %>% mutate(covid19_combined = ifelse(sampleid %in% c(6429,6148,6726),1,covid19_combined)) %>%
+  select(deceased_date, covid19_combined, age_death) %>%
+  rename(date = deceased_date) %>%
+  mutate(date = as.Date(date),
+         Age_gr = cut(as.numeric(age_death), c(seq(0,80,by = 5),Inf), right = F, labels = F)) %>%
+  select(-age_death) %>%
+  filter(covid19_combined != ".") %>%
+  group_by(date, Age_gr) %>%
+  summarise(Samples = length(date),
+            PosTests = sum(ifelse(covid19_combined %in% c(1,2),T,F)),
+            PosTests_Strict = sum(ifelse(covid19_combined ==2,T,F))) %>%
   arrange(date) %>% ungroup() %>%
   tidyr::complete(Age_gr, date = seq.Date(min(date), max(date), by="day"),
                   fill = list(Samples = 0, PosTests = 0, PosTests_Strict = 0))
 
-saveRDS(df_Date,"analysis/data/Code-generated-data/00_12_Post_Mortem_Complete_Age.rds")
 
-df_Date_no_age <- df_Date %>% group_by(date) %>%
+# df <- readxl::read_xlsx(path = "analysis/data/raw/covid results first paper.xlsx")
+# df <- df %>% select(sampleid, deceased_date, COVID19, covid19_combined, N1_CT_1,N2_CT_1,NG_CT_1,OR_CT_1, age_death) %>%
+#   rename(date = deceased_date)
+#
+# df_1 <- df %>% mutate(N1_CT_1 = ifelse(N1_CT_1 != ".", T, F),
+#                       N2_CT_1 = ifelse(N2_CT_1 != ".", T, F),
+#                       NG_CT_1 = ifelse(NG_CT_1 != ".", T, F),
+#                       OR_CT_1 = ifelse(OR_CT_1 != ".", T, F),
+#                       date = as.Date(date)) %>%
+#   mutate(PosTests = N1_CT_1 + N2_CT_1 + NG_CT_1 + OR_CT_1) %>%
+#   select(sampleid, date, COVID19, covid19_combined, PosTests, age_death)
+#
+# df_2 <- df %>% mutate(N1_CT_1 = ifelse(N1_CT_1 != "." & N1_CT_1<40, T, F),
+#                       N2_CT_1 = ifelse(N2_CT_1 != "." & N2_CT_1<40, T, F),
+#                       NG_CT_1 = ifelse(NG_CT_1 != "." & NG_CT_1<40, T, F),
+#                       OR_CT_1 = ifelse(OR_CT_1 != "." & OR_CT_1<40, T, F)) %>%
+#   mutate(PosTests_Strict = N1_CT_1 + N2_CT_1 + NG_CT_1 + OR_CT_1) %>%
+#   select(sampleid,date, COVID19, covid19_combined, PosTests_Strict, age_death)
+#
+# df <- merge(df_1, df_2, all = T) %>%
+#   mutate(Age_gr = cut(as.numeric(age_death), c(seq(0,80,by = 5),Inf), right = F, labels = F)) %>% select(-age_death)
+#
+# df_Date <- df %>% group_by(date, Age_gr) %>%
+#   summarise(Samples = length(PosTests),
+#             PosTests = sum(ifelse(PosTests !=0,T,F)),
+#             PosTests_Strict = sum(ifelse(PosTests_Strict >=2,T,F))) %>%
+#   arrange(date) %>% ungroup() %>%
+#   tidyr::complete(Age_gr, date = seq.Date(min(date), max(date), by="day"),
+#                   fill = list(Samples = 0, PosTests = 0, PosTests_Strict = 0))
+
+saveRDS(df,"analysis/data/Code-generated-data/00_12_Post_Mortem_Complete_Age.rds")
+
+df_age <- df %>% filter(date >="2020-06-15") %>%
+  group_by(Age_gr) %>%
+  summarise(date = head(date,1),
+            Samples = sum(Samples),
+            PosTests = sum(PosTests),
+            PosTests_Strict = sum(PosTests_Strict)) %>%
+  mutate(PosTests/Samples)
+
+barplot(df_age$PosTests/df_age$Samples)
+
+
+df_Date_no_age <- df %>% group_by(date) %>%
   summarise(date = head(date,1),
             Samples = sum(Samples),
             PosTests = sum(PosTests),
@@ -643,9 +887,36 @@ df_weeks <- df_Date_no_age %>% mutate(Week_gr = cut.Date(date, breaks = "1 week"
   group_by(Week_gr) %>%
   summarise(Samples = sum(Samples),
             PosTests = sum(PosTests),
-            PosTests_Strict = sum(PosTests_Strict))
+            PosTests_Strict = sum(PosTests_Strict),
+            date = min(date))
 
 saveRDS(df_weeks,"analysis/data/Code-generated-data/00_12_Post_Mortem_Complete_weeks.rds")
+
+
+
+p12_01 <- ggplot(df_weeks, aes(x = date+3)) +
+  geom_point(aes(y = PosTests/Samples)) +
+  # geom_errorbar(aes(ymin = PosTests/Samples - qnorm(1-0.05/2)*sqrt((1/100)*(PosTests/Samples) *(1 - PosTests/Samples)),
+  #                   ymax = PosTests/Samples + qnorm(1-0.05/2)*sqrt((1/100)*(PosTests/Samples) *(1 - PosTests/Samples)))) +
+  geom_errorbar(aes(ymin = Hmisc::binconf(PosTests,Samples)[,"Lower"],
+                    ymax = Hmisc::binconf(PosTests,Samples)[,"Upper"])) +
+  ylab("Post-mortem COVID-19 Prevalence") +
+  xlab("Date") +
+  ggpubr::theme_pubr(legend = "bottom")
+
+p12_02 <- ggplot(df_age, aes(x = Age_gr*5-2.5)) +
+  geom_point(aes(y = PosTests/Samples)) +
+  # geom_errorbar(aes(ymin = PosTests/Samples - qnorm(1-0.05/2)*sqrt((1/100)*(PosTests/Samples) *(1 - PosTests/Samples)),
+  #                   ymax = PosTests/Samples + qnorm(1-0.05/2)*sqrt((1/100)*(PosTests/Samples) *(1 - PosTests/Samples)))) +
+  geom_errorbar(aes(ymin = Hmisc::binconf(PosTests,Samples)[,"Lower"],
+                    ymax = Hmisc::binconf(PosTests,Samples)[,"Upper"])) +
+  ylab("Post-mortem COVID-19 Prevalence") +
+  xlab("Age") +
+  ggpubr::theme_pubr(legend = "bottom")
+
+pdf("analysis/figures/00_12_01_Post_Mortem_Prevalence_Weeks_Age.pdf", width = 12)
+cowplot::plot_grid(p12_01,p12_02)
+dev.off()
 
 
 
@@ -653,7 +924,7 @@ saveRDS(df_weeks,"analysis/data/Code-generated-data/00_12_Post_Mortem_Complete_w
 ### 13. Combined Mortuary, post-mortem data 2
 ##############################################
 
-Combined_Dates2 <- merge(df_Date, UTH_deaths_by_age, all = T) %>% tidyr::replace_na(list(Mort_deaths = 0, Samples = 0, PosTests = 0, PosTests_Strict = 0)) %>%
+Combined_Dates2 <- merge(df, UTH_deaths_by_age, all = T) %>% tidyr::replace_na(list(Mort_deaths = 0, Samples = 0, PosTests = 0, PosTests_Strict = 0)) %>%
   tidyr::complete(Age_gr, date, fill = list(Mort_deaths = 0, Samples = 0, PosTests = 0, PosTests_Strict = 0))
 
 Combined_Weeks2 <- Combined_Dates2 %>% filter(date>="2020-06-15") %>% mutate(Week_gr = cut.Date(x = date, breaks = "weeks", labels = F)) %>%
@@ -666,9 +937,9 @@ Combined_Weeks2 <- Combined_Dates2 %>% filter(date>="2020-06-15") %>% mutate(Wee
 
 # table(Combined_Weeks[,c("Age_gr","Week_gr")])
 
-Combined_Weeks2[Combined_Weeks2$Week_gr==4, "Mort_deaths"] <-
-  Combined_Weeks2[Combined_Weeks2$Week_gr %in% c(3,5), c("Age_gr","Week_gr","Mort_deaths")] %>% group_by(Age_gr) %>%
-  summarise(Mort_deaths = round(mean(Mort_deaths))) %>% select(Mort_deaths)
+# Combined_Weeks2[Combined_Weeks2$Week_gr==4, "Mort_deaths"] <-
+#   Combined_Weeks2[Combined_Weeks2$Week_gr %in% c(3,5), c("Age_gr","Week_gr","Mort_deaths")] %>% group_by(Age_gr) %>%
+#   summarise(Mort_deaths = round(mean(Mort_deaths))) %>% select(Mort_deaths)
 # sum(Combined_Weeks2_no_age$Samples)
 # sum(Combined_Weeks2_no_age$PosTests)
 # sum(Combined_Weeks2_no_age$PosTests_Strict)
