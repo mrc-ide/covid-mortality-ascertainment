@@ -293,10 +293,9 @@ run_deterministic_10_pois_bin_bin_ag1std_agRR <- function(data,
   ##############################################################################
   ### Get model output
 
-  # if(!(obs_params$lld %in% c("ll_pois","ll_pois_bin_include_4_5","ll_pois_bin_remove_4_5_from_pois_only","ll_pois_bin_include_4_5_remove_youngest_age_group"))){
-  # stop("likelihood not found")
-  # }
-
+  if(!(obs_params$lld %in% c("full_data","remove_weeks_4_and_5","remove_under_5s","remove_weeks_4_and_5_and_age_under_5s"))){
+  stop("likelihood not found")
+  }
   out <- model_func$run(t = seq(0, tail(steps,1), 1), atol = atol, rtol = rtol)
   index <- squire:::odin_index(model_func)
 
@@ -306,8 +305,10 @@ run_deterministic_10_pois_bin_bin_ag1std_agRR <- function(data,
   attr(out, "date") <- date
 
   ### Data for comparison: age and weeks
-  pcr_det <- obs_params$pcr_det
-  frac_mort <- 0.8 # Mortuary captures 80% of deaths in Lusaka
+  # pcr_det <- obs_params$pcr_det
+  # browser()
+  pcr_det_PM <- obs_params$pcr_det_PM
+  frac_mort <- obs_params$frac_mort # Mortuary captures 80% of deaths in Lusaka
 
   ### Get model data for comparison
   Days_for_comparison <-c(seq.Date(from = as.Date("2020-06-14"),
@@ -333,7 +334,7 @@ run_deterministic_10_pois_bin_bin_ag1std_agRR <- function(data,
   pcr_pos_age <- apply(out[,index$S],2,function(x){
     x <- as.integer(x)
     infs <- c(0,diff(max(x)-x))
-    pcr_positive <- roll_func_10(infs, pcr_det)
+    pcr_positive <- roll_func_10(infs, pcr_det_PM)
     pcr_perc <- pcr_positive/max(x)
   })
   # )
@@ -344,61 +345,101 @@ run_deterministic_10_pois_bin_bin_ag1std_agRR <- function(data,
   pcr_perc_age <- reshape2::melt(data = pcr_perc_age, value.name = "pcr_perc", varnames= c("Week_gr","Age_gr")) # 16 time periods, 17 age groups.
 
   Mod_Deaths_Age <- merge(Mod_Deaths_Age, pcr_perc_age)
-  Mod_Deaths_Age$Mod_cd_80 <- Mod_Deaths_Age$Mod_cd_Lus*frac_mort
+  Mod_Deaths_Age$Mod_cd_frac <- Mod_Deaths_Age$Mod_cd_Lus*frac_mort
 
   ##############################################################################
   ##############################################################################
+
+  # if(obs_params$lld =="remove_weeks_4_and_5"){
+    # Mod_Deaths_Age <- Mod_Deaths_Age %>% dplyr::filter(Week_gr != 4, Week_gr != 5)
+    # obs_params$combined_data$dfj_mcmc_data <- lapply(obs_params$combined_data$dfj_mcmc_data, function(x){return(x %>% dplyr::filter(Week_gr != 4, Week_gr != 5))})}
+  # if(obs_params$lld =="remove_under_5s"){
+    # Mod_Deaths_Age <- Mod_Deaths_Age %>% dplyr::filter(Age_gr != 1)
+    # obs_params$combined_data$dfj_mcmc_data <- lapply(obs_params$combined_data$dfj_mcmc_data, function(x){return(x %>% dplyr::filter(Age_gr != 1))})}
+  # if(obs_params$lld =="remove_weeks_4_and_5_and_age_under_5s"){
+    # Mod_Deaths_Age <- Mod_Deaths_Age %>% dplyr::filter(Age_gr != 1,Week_gr != 4,Week_gr != 5)}
+    # obs_params$combined_data$dfj_mcmc_data <- lapply(obs_params$combined_data$dfj_mcmc_data, function(x){return(x %>% dplyr::filter(Age_gr != 1,Week_gr != 4,Week_gr != 5))})}
+
+
   LL_Distributions <- lapply(1:length(obs_params$combined_data$dfj_mcmc_data), function(y){
 
-    tmp_df <- merge(Mod_Deaths_Age, obs_params$combined_data$dfj_mcmc_data[[y]])
-    tmp_df$Mod_cd_UTH <- tmp_df$Mod_cd_80*tmp_df$ag1std
+    tmp_df <- merge(Mod_Deaths_Age, obs_params$combined_data$dfj_mcmc_data[[y]], all = F)
 
-    ll_pois_tmp <- sum(dpois(x = tmp_df$Mort_deaths, lambda = (tmp_df$Mod_cd_UTH + tmp_df$Mort_ncd_mcmc), log = T))
+    # ll_pois_tmp <- sum(dpois(x = tmp_df$Mort_deaths, lambda = (tmp_df$Mod_cd_UTH + tmp_df$Mort_ncd_mcmc), log = T))
+    ll_pois_tmp <- sum(dpois(x = tmp_df$Bur_regs, lambda = (tmp_df$Mod_cd_Lus*tmp_df$ag1std + tmp_df$Mort_ncd_mcmc), log = T))
 
-    tmp_df$Mod_ncd_UTH <- ifelse((tmp_df$Mort_deaths - tmp_df$Mod_cd_UTH)<0,0,(tmp_df$Mort_deaths - tmp_df$Mod_cd_UTH))
-    tmp_df$Mod_pos_ds_UTH <- tmp_df$Mod_cd_UTH+tmp_df$Mod_ncd_UTH*tmp_df$pcr_perc # total positive deaths (covid and coincidental)
-    tmp_df$Pos_prev <- ifelse(tmp_df$Mod_pos_ds_UTH<=tmp_df$Mort_deaths,tmp_df$Mod_pos_ds_UTH/tmp_df$Mort_deaths, 0.999)
+    tmp_df$Mod_ncd_Lus <- tmp_df$Bur_regs/tmp_df$ag1std - tmp_df$Mod_cd_Lus
+    tmp_df$Mod_ncd_Lus <- ifelse(tmp_df$Mod_ncd_Lus<0,0,tmp_df$Mod_ncd_Lus)
+    tmp_df$Mod_pos_ds_Lus <- tmp_df$Mod_cd_Lus+tmp_df$Mod_ncd_Lus*tmp_df$pcr_perc # total positive deaths (covid and coincidental)
+    tmp_df$Pos_prev <- ifelse(tmp_df$Mod_pos_ds_Lus<=tmp_df$Bur_regs/tmp_df$ag1std,tmp_df$Mod_pos_ds_Lus/(tmp_df$Bur_regs/tmp_df$ag1std), 0.999)
+
+    # tmp_df$Mod_cd_UTH <- tmp_df$Mod_cd_frac*tmp_df$ag1std
+    # tmp_df$Mod_ncd_UTH <- ifelse((tmp_df$Bur_regs*frac_mort - tmp_df$Mod_cd_UTH)<0,0,(tmp_df$Bur_regs*frac_mort - tmp_df$Mod_cd_UTH))
+    # tmp_df$Mod_pos_ds_UTH <- tmp_df$Mod_cd_UTH+tmp_df$Mod_ncd_UTH*tmp_df$pcr_perc # total positive deaths (covid and coincidental)
+    # tmp_df$Pos_prev <- ifelse(tmp_df$Mod_pos_ds_UTH<=tmp_df$Bur_regs*frac_mort,tmp_df$Mod_pos_ds_UTH/tmp_df$Bur_regs, 0.999)
+
+    ### Testing
+    # (tmp_df$Mod_cd_Lus + (tmp_df$Bur_regs/tmp_df$ag1std - tmp_df$Mod_cd_Lus)*tmp_df$pcr_perc) / (tmp_df$Bur_regs/tmp_df$ag1std)
+    # ((tmp_df$Mod_cd_Lus + (tmp_df$Bur_regs/tmp_df$ag1std - tmp_df$Mod_cd_Lus)*tmp_df$pcr_perc)*tmp_df$ag1std) / tmp_df$Bur_regs
+    # (tmp_df$Mod_cd_Lus*tmp_df$ag1std + (tmp_df$Bur_regs - tmp_df$Mod_cd_Lus*tmp_df$ag1std)*tmp_df$pcr_perc)/ tmp_df$Bur_regs
+    # round(100*(tmp_df$Mod_cd_Lus*0.8*tmp_df$ag1std + (tmp_df$Bur_regs*0.8 - tmp_df$Mod_cd_Lus*0.8*tmp_df$ag1std)*tmp_df$pcr_perc) / (tmp_df$Bur_regs*0.8),1)
 
     ll_binom_tmp <- sum(dbinom(tmp_df$PosTests, tmp_df$Samples, prob = tmp_df$Pos_prev, log = T))
-
+# Mod_Age_Deaths_Lus
     return(data.frame(ll_pois = ll_pois_tmp, ll_binom = ll_binom_tmp))
   })
-
-  ll_aw_pois <- as.numeric(log(sum(exp(Brobdingnag::as.brob(sapply(LL_Distributions,"[[",1))))/length(LL_Distributions)))
+# browser()
+  ll_aw_pois <- as.numeric(log(Brobdingnag::sum(exp(Brobdingnag::as.brob(sapply(LL_Distributions,"[[",1))))/length(LL_Distributions)))
   ll_aw_bin <- as.numeric(mean(sapply(LL_Distributions,"[[",2)))
 
   ##############################################################################
   ##############################################################################
 
-
   ################################################
   ################################################
   ## And the ll for the combined prevalence.
-  llc <- 0
-  # browser()
-  if(all(unlist(lapply(list(obs_params$comb_df, obs_params$comb_det),function(x){!is.null(x)})))){
-    comb_df <- obs_params$comb_df
-    comb_det <- obs_params$comb_det
+  # llc <- 0
+  # # browser()
+  # if(all(unlist(lapply(list(obs_params$comb_df, obs_params$comb_det),function(x){!is.null(x)})))){
+  #   comb_df <- obs_params$comb_df
+  #   comb_det <- obs_params$comb_det
+  #
+  #   ### Model PCR: Number of Infections/combined prevalence
+  #   Sus <- rowSums(out[,index$S])
+  #   infs <- c(0,as.integer(diff(max(Sus)-Sus)))
+  #   comb_positive <- roll_func_10(infs, comb_det)
+  #   comb_perc <- comb_positive/max(Sus)
+  #
+  #   # comb_dates <- c(comb_df$date_start, comb_df$date_end, comb_df$date_start + as.integer((comb_df$date_end - comb_df$date_start)/2))#list(comb_df$date_end, comb_df$date_start, comb_df$date_start + as.integer((comb_df$date_end - comb_df$date_start)/2))
+  #   comb_dates <- seq.Date(from = comb_df$date_start, to = comb_df$date_end, by = 1)
+  #   comb_perc <- comb_perc[as.Date(rownames(out)) %in% comb_dates]
+  #
+  #   # likelihood of model obvs
+  #   llc <- dbinom(comb_df$comb_pos, comb_df$samples, mean(comb_perc), log = TRUE)
+  # }
+  ################################################
+  ################################################
 
-    ### Model PCR: Number of Infections/combined prevalence
-    Sus <- rowSums(out[,index$S])
-    infs <- c(0,as.integer(diff(max(Sus)-Sus)))
-    comb_positive <- roll_func_10(infs, comb_det)
-    comb_perc <- comb_positive/max(Sus)
-
-    # comb_dates <- c(comb_df$date_start, comb_df$date_end, comb_df$date_start + as.integer((comb_df$date_end - comb_df$date_start)/2))#list(comb_df$date_end, comb_df$date_start, comb_df$date_start + as.integer((comb_df$date_end - comb_df$date_start)/2))
-    comb_dates <- seq.Date(from = comb_df$date_start, to = comb_df$date_end, by = 1)
-    comb_perc <- comb_perc[as.Date(rownames(out)) %in% comb_dates]
-
-    # likelihood of model obvs
-    llc <- dbinom(comb_df$comb_pos, comb_df$samples, mean(comb_perc), log = TRUE)
+  ################################################
+  ################################################
+  ## ll for pcr prevalence.
+  ll_pcr <- 0
+  if(all(unlist(lapply(list(obs_params$pcr_df, obs_params$pcr_det),function(x){!is.null(x)})))){
+    ll_pcr <- ll_prev_func(df = obs_params$pcr_df, det = obs_params$pcr_det, Incidence = "Infections", out = out, index = index)
   }
+
+  ## ll for pcr prevalence.
+  ll_sero <- 0
+  if(all(unlist(lapply(list(obs_params$sero_df, obs_params$sero_det),function(x){!is.null(x)})))){
+    ll_sero <- ll_prev_func(df = obs_params$sero_df, det = obs_params$sero_det, Incidence = "Symptoms", out = out, index = index, model_params = model_params)
+  }
+
   ################################################
   ################################################
 
   ##############################################################################
   ##############################################################################
-  ll <- sum(ll_aw_pois, ll_aw_bin, llc)
+  ll <- sum(ll_aw_pois, ll_aw_bin, ll_pcr, ll_sero)
   ##############################################################################
   ##############################################################################
 
@@ -438,4 +479,29 @@ roll_func_10 <- function(x, det) {
     ret[i] <- sum(rev(to_sum)*det[seq_along(to_sum)])
   }
   return(ret)
+}
+
+
+## Prev function
+ll_prev_func <- function(df, det, Incidence, out, index, model_params = model_params){
+
+  Sus <- rowSums(out[,index$S])
+  Infs <- c(0,as.integer(diff(max(Sus)-Sus)))
+
+  if(Incidence == "Infections"){
+    positives <- roll_func_10(Infs, det)
+  }
+  if(Incidence == "Symptoms"){
+    Symps <- rowSums(out[,index$E2]) * model_params$gamma_E
+    positives <- roll_func_10(Symps, det)
+  }
+
+  percs <- positives/max(Sus)
+
+  test_dates <- seq.Date(from = df$date_start, to = df$date_end, by = 1)
+  perc_dates <- percs[as.Date(rownames(out)) %in% test_dates]
+
+  ll <- dbinom(df$pos_tests, df$samples, mean(perc_dates), log = TRUE)
+
+  return(ll)
 }

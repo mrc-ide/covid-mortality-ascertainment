@@ -177,7 +177,8 @@ r_logprior <- function(params, misc) {
 #                            )
 # )
 
-LOOCV <- readRDS("../Bonus Files/2022-04-22_mcmc_LOOCV_1.rds")
+# LOOCV <- readRDS("../Bonus Files/2022-04-22_mcmc_LOOCV_1.rds")
+LOOCV <- readRDS("../Bonus Files/2022-05-24_Baseline_Mortality_mcmc_loocv_Gamma_Prior.rds")
 
 # LOOCV
 
@@ -224,7 +225,7 @@ LOOCV <- readRDS("../Bonus Files/2022-04-22_mcmc_LOOCV_1.rds")
 ### So I take the predictions, and see if the mean is a better predictor.
 ## Start with SS
 
-Test_weeks <- lapply(1:25, function(x){(x*4-3):(x*4)})
+Test_weeks <- lapply(1:26, function(x){(x*4-3):(x*4)})
 
 # LOOCV <- readRDS("../Bonus Files/2022-04-22_mcmc_LOOCV_1.rds")
 ## For each of the missing weeks, get the range of estimates
@@ -272,7 +273,8 @@ UTH_Mortality_Total <- read.csv(file = "analysis/data/raw/BMJ_UTH_excess_mortali
   group_by(Week_gr,Age_gr,Week_gr_date_start) %>%
   summarise(Mort_deaths = length(date)) %>%
   ungroup %>%
-  tidyr::complete(Week_gr, Age_gr, fill = list(Mort_deaths = 0))
+  tidyr::complete(Week_gr, Age_gr, fill = list(Mort_deaths = 0)) %>%
+  group_by(Week_gr) %>% mutate(Week_gr_date_start = na.omit(unique(Week_gr_date_start)))
 
 
 Plot_Res <- melt(LOOCV_Ests_median, varnames = c("Age_gr", "Week_gr"), value.name = "Deaths_median") %>%
@@ -284,7 +286,7 @@ Plot_Res <- melt(LOOCV_Ests_median, varnames = c("Age_gr", "Week_gr"), value.nam
   merge(melt(LOOCV_Ests_CI_high, varnames = c("Age_gr", "Week_gr"), value.name = "Deaths_high_CI") %>%
           mutate(Age_gr = as.numeric(Age_gr),
                  Week_gr = as.numeric(gsub(x = Week_gr, "U_5_Rate_Week", "")))) %>%
-  merge(UTH_Mortality_Total %>% select(Week_gr, Week_gr_date_start) %>% unique())
+  merge(UTH_Mortality_Total %>% select(Week_gr, Week_gr_date_start) %>% unique() %>% na.omit())
 
 
 
@@ -294,16 +296,16 @@ Age_groups.labs <- c(paste0("Age: ", c("0-4","5-9","10-14","15-29","20-24","25-2
                                        "60-64","65-69","70-74","75-79","80+")))
 names(Age_groups.labs) <- 1:17
 
-merge(Plot_Res, UTH_Mortality_Total) %>% filter(Age_gr ==1) %>%
+# merge(Plot_Res, UTH_Mortality_Total) %>% filter(Age_gr ==1) %>%
 
 
 
-UTH_Mortality_Total %>% filter(Age_gr ==1)
+# UTH_Mortality_Total %>% filter(Age_gr ==1)
 
 p2 <- ggplot(data = UTH_Mortality_Total, aes(x = Week_gr_date_start, y = Mort_deaths)) +
-  geom_point(aes(alpha = "Mortuary deaths")) +
   geom_line(data = Plot_Res, aes(x = Week_gr_date_start, y = Deaths_median, alpha = "MCMC ests. mean"), col = "black", linetype = 2, inherit.aes = F) +
   geom_ribbon(data = Plot_Res, aes(x = Week_gr_date_start, ymin = Deaths_low_CI, ymax = Deaths_high_CI, alpha = "Post pred dist median +/- 95% CI"), fill ="darkred", inherit.aes = F) +
+  geom_point(aes(alpha = "Mortuary deaths")) +
   facet_wrap(~Age_gr, ncol = 3, scales = "free_y", labeller = labeller(Age_gr = Age_groups.labs)) +
   xlab("Weeks (2018-2019)") + ylab("All cause deaths") +
   # scale_alpha_manual(name=NULL,
@@ -333,7 +335,11 @@ scale_alpha_manual(name = NULL,
   ggpubr::theme_pubr(legend = c(5/6,0.07)) +
   theme(legend.text = element_text(size=12))
 
-pdf("analysis/figures/41_01_2018-2019_All_cause_mortality_mcmc_ests.pdf", width = 12, height = 15)
+pdf("analysis/figures/41_01_2018-2019_All_cause_mortality_mcmc_ests_checked.pdf", width = 12, height = 15)
+p2
+dev.off()
+
+tiff("analysis/figures/41_01_2018-2019_All_cause_mortality_mcmc_ests_checked.tiff", res = 300, units = "in", width = 12, height = 15)
 p2
 dev.off()
 
@@ -356,7 +362,7 @@ p3 <- ggplot(data = merge(UTH_Mortality_Total,Plot_Res %>% filter(Age_gr !=1)), 
   viridis::scale_color_viridis(discrete = T, name = "Age group",
                                breaks = 1:17,
                                labels= Age_groups.labs) +
-  xlab("Mortuary deaths") + ylab("Predictions")
+  xlab("Burial registrations") + ylab("Predictions")
 
   # geom_line(data = Plot_Res, aes(x = Week_gr_date_start, y = Deaths_median, alpha = "MCMC ests. mean"), col = "black", linetype = 2, inherit.aes = F) +
   # geom_ribbon(data = Plot_Res, aes(x = Week_gr_date_start, ymin = Deaths_low_CI, ymax = Deaths_high_CI, alpha = "Post pred dist median +/- 95% CI"), fill ="darkred", inherit.aes = F) +
@@ -378,12 +384,12 @@ p3 <- ggplot(data = merge(UTH_Mortality_Total,Plot_Res %>% filter(Age_gr !=1)), 
   # ggpubr::theme_pubr(legend = c(5/6,0.07)) +
   # theme(legend.text = element_text(size=12))
 
-pdf("analysis/figures/41_02_2018-2019_All_cause_mortality_against_predictions.pdf")
+pdf("analysis/figures/41_02_2018-2019_All_cause_mortality_against_predictions_checked.pdf")
 p3
 dev.off()
 
 
-tiff("analysis/figures/41_02_2018-2019_All_cause_mortality_against_predictions.tiff", res = 300, units = "in", height = 7, width = 7)
+tiff("analysis/figures/41_02_2018-2019_All_cause_mortality_against_predictions_checked.tiff", res = 300, units = "in", height = 7, width = 7)
 p3
 dev.off()
 

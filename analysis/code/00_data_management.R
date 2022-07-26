@@ -10,37 +10,34 @@ devtools::load_all()
 ### 1. Official Lusaka Province/District Death Data
 ###################################################
 df_Off_Lu <- read.csv(file = "analysis/data/raw/00_official_reports_covid_zambia.csv") %>%
-  mutate(date = as.Date(Date), deaths = Total_Deaths)
+  mutate(date = as.Date(Date)) %>%
+  rename(deaths = Total_Deaths)
 
 ## Filter deaths for Lusaka PROVINCE until November 2020
 df_Off_Lu_Prov <- df_Off_Lu %>%
-  filter(Province=="Lusaka" & date < "2020-11-01") %>%
+  filter(Province=="Lusaka"
+         #date < "2020-11-01"
+         ) %>%
   group_by(date) %>% summarise(deaths = sum(deaths)) %>%
-  select(date, deaths) %>% na.omit()
-
-# Add missing dates with 0 deaths
-date_list_P <- seq(min(df_Off_Lu_Prov$date), max(df_Off_Lu_Prov$date), by = 1)
-missing_dates_P <- date_list_P[!date_list_P %in% df_Off_Lu_Prov$date]
-df_Off_Lu_Prov <- add_row(df_Off_Lu_Prov, date = missing_dates_P, deaths = 0) %>% arrange(date)
-# Save
+  select(date, deaths) %>% na.omit() %>%
+  complete(date = seq.Date(min(date), max(date), by = "day"), fill = list(deaths = 0))
 saveRDS(object = df_Off_Lu_Prov, file = "analysis/data/Code-generated-data/00_01_Lusaka_Prov_Deaths_Official.rds")
 
 ## Filter deaths for Lusaka DISTRICT until November 2020
 # Include the 6 deaths prior to May 21st 2020 where no district was given.
 df_Off_Lu_Dist <- df_Off_Lu %>%
-  filter(District=="Lusaka" & date < "2020-11-01" | Province =="Lusaka" & date < "2020-05-21") %>%
+  filter(District=="Lusaka") %>%# ,         date < "2020-11-01" | Province =="Lusaka" & date < "2020-05-21") %>%
   group_by(date) %>% summarise(deaths = sum(deaths)) %>%
-  select(date, deaths) %>% na.omit()
-
-# Add missing dates with 0 deaths
-date_list_D <- seq(min(df_Off_Lu_Dist$date), max(df_Off_Lu_Dist$date), by = 1)
-missing_dates_D <- date_list_D[!date_list_D %in% df_Off_Lu_Dist$date]
-df_Off_Lu_Dist <- add_row(df_Off_Lu_Dist, date = missing_dates_D, deaths = 0) %>% arrange(date)
-# Save
+  select(date, deaths) %>% na.omit() %>%
+  tidyr::complete(date = seq.Date(min(date), max(date), by = "day"), fill = list(deaths = 0))
 saveRDS(object = df_Off_Lu_Dist, file = "analysis/data/Code-generated-data/00_01_Lusaka_Dist_Deaths_Official.rds")
+
+## Plots
+pdf("analysis/figures/Data_Plots/00_01_Official_Deaths_Lusaka_District.pdf")
 plot(df_Off_Lu_Dist, pch = 20, xlab = "Date", ylab = "Deaths")
 abline(v = as.Date("2020-06-15"), col = "red", lty = 2)
 abline(v = as.Date("2020-10-05"), col = "red", lty = 2)
+dev.off()
 ###################################################
 ###################################################
 
@@ -50,13 +47,19 @@ abline(v = as.Date("2020-10-05"), col = "red", lty = 2)
 ##############################################
 ### 2. Lusaka Population structure
 ##############################################
+# 2020 Lusaka district esimates from Jonas Hines and Lloyd Mulenga
+pop_st_lu_dist_2020 <- as.numeric(read.csv(file = "analysis/data/raw/Lusaka-pop-str_improved_ests.csv")[5:21,2])
+age_groups <- read.csv(file = "analysis/data/raw/Lusaka-pop-str_improved_ests.csv")[5:21,1]
+saveRDS(pop_st_lu_dist_2020, "analysis/data/Code-generated-data/00_02_Lusaka_Dist_Pop_Str_2020_imp_ests.rds")
+saveRDS(age_groups, "analysis/data/Code-generated-data/00_02_Age_groups_vector.rds")
+
 # 2020 Age distribution for Lusaka Province from opendataforafrica (https://zambia.opendataforafrica.org/thrqjfb/population-and-demographic-projections-2011-2035?regionId=ZM-09)
-pop_st_lu_prov <- c(549475,448008,379841,339600,317148,305521,271318,232188,172365,125531,75157,51883,35587,22219,14960,8570,10812)
-saveRDS(pop_st_lu_prov, "analysis/data/Code-generated-data/00_02_Lusaka_Prov_Pop_Struc_2020_opendataforafrica.rds")
+# pop_st_lu_prov <- c(549475,448008,379841,339600,317148,305521,271318,232188,172365,125531,75157,51883,35587,22219,14960,8570,10812)
+# saveRDS(pop_st_lu_prov, "analysis/data/Code-generated-data/00_02_Lusaka_Prov_Pop_Struc_2020_opendataforafrica.rds")
 
 # 2020 Age distribution for Lusaka District  opendataforafrica (https://zambia.opendataforafrica.org/thrqjfb/population-and-demographic-projections-2011-2035?regionId=ZM-09)
-pop_st_lu_dist <- c(439632,356146,302389,273911,265588,260473,230783,195211,142218,100552,58537,26654,40513,15878,10201,5695,7314)
-saveRDS(pop_st_lu_dist, "analysis/data/Code-generated-data/00_02_Lusaka_Dist_Pop_Struc_2020_opendataforafrica.rds")
+# pop_st_lu_dist <- c(439632,356146,302389,273911,265588,260473,230783,195211,142218,100552,58537,26654,40513,15878,10201,5695,7314)
+# saveRDS(pop_st_lu_dist, "analysis/data/Code-generated-data/00_02_Lusaka_Dist_Pop_Struc_2020_opendataforafrica.rds")
 # sum(pop_st_lu)
 
 ## Population size for Lusaka Province
@@ -98,28 +101,28 @@ saveRDS(pop_st_lu_dist, "analysis/data/Code-generated-data/00_02_Lusaka_Dist_Pop
 
 # Get parameters (the parameters used are generic)
 Zmb_p <-parameters_explicit_SEEIR("Zambia")
-# IFR_Age
+
 # Calculate the probability of death by weighting probabilities of death given treatment by probability of severe
 prob_death_tot <- Zmb_p$prob_severe * Zmb_p$prob_severe_death_treatment +
   (1-Zmb_p$prob_severe) * Zmb_p$prob_non_severe_death_treatment
+
 # Calculate IFR for each age group: multiply probability of death of a case by probability hospitalised
 IFR_Age <- 100*(Zmb_p$prob_hosp * prob_death_tot)
 IFR_Age_gr <- seq(2.5, 82.5, by = 5)
-IFR_Coefs <- lm(log(IFR_Age) ~ IFR_Age_gr)$coefficients
-# plot(x = IFR_Age_gr, y = log(IFR_Age))
-# abline(lm(log(IFR_Age) ~ seq(2.5, 82.5, by = 5)))
-# points(x = IFR_Age_gr, y = log(IFR_Age_var_slope_int[41,]), col = 2)
 
-# plot(x = IFR_Age_gr, y = IFR_Age)
-# points(x = IFR_Age_gr, y = IFR_Age_var_slope_int[41,], col = 2)
+# Model coefficients of curve
+IFR_Coefs <- lm(log(IFR_Age) ~ IFR_Age_gr)$coefficients
 
 # Save
-# saveRDS(prob_death_tot, "analysis/data/Code-generated-data/00_03_Tot_Prob_Death_By_Age_Zam.rds")
-saveRDS(list(Prob_death_when_hospitalised = prob_death_tot, IFR_Age_gr = IFR_Age_gr, IFR_Age = IFR_Age, IFR_Coefs = IFR_Coefs), "analysis/data/Code-generated-data/00_03_IFR_values_Brazeau.rds")
+saveRDS(list(Prob_death_when_hospitalised = prob_death_tot,
+             IFR_Age_gr = IFR_Age_gr,
+             IFR_Age = IFR_Age,
+             IFR_Coefs = IFR_Coefs), "analysis/data/Code-generated-data/00_03_IFR_values_Brazeau.rds")
 
+################
 ## Draw IFR grid
 # pop_st_lu <- readRDS("analysis/data/Code-generated-data/00_02_Lusaka_Prov_Pop_Struc_2020_opendataforafrica.rds")
-pop_st_lu <- readRDS("analysis/data/Code-generated-data/00_02_Lusaka_Dist_Pop_Struc_2020_opendataforafrica.rds")
+pop_st_lu <- readRDS("analysis/data/Code-generated-data/00_02_Lusaka_Dist_Pop_Str_2020_imp_ests.rds")
 
 # 9x9 matrix of IFR values:
 IFR_vec <- seq(0.2,1, by = 0.2) # IFR vector
@@ -135,12 +138,12 @@ IFR_mat <- IFR_mat %>% mutate(IFR_abs = IFR_x * sum(IFR_Age * pop_st_lu/sum(pop_
                               Slope_abs = Slope_x * IFR_Coefs[2])
 
 # Apply the function to calculate intercept values for each IFR gradient combination
+# devtools::load_all()
 IFR_mat$Int_abs <- apply(IFR_mat, 1, function(x){
-  Int_calc(IFR = x["IFR_abs"], Slope = x["Slope_abs"], Age_grs = IFR_Age_gr, Pop_str = pop_st_lu)
+  Int_calc(IFR = x["IFR_abs"], Slope = x["Slope_abs"], Age_groups = IFR_Age_gr, Pop_str = pop_st_lu)
 })
-# saveRDS(IFR_mat, "analysis/data/Code-generated-data/00_03_IFR_matrix_coefficients_log_scale.rds")
-IFR_mat <- readRDS("analysis/data/Code-generated-data/00_03_IFR_matrix_coefficients_log_scale.rds")
-##
+# IFR_mat <- saveRDS(IFR_mat, "analysis/data/Code-generated-data/00_03_IFR_matrix_coefficients_log_scale_new_pop_str_ests.rds")
+IFR_mat <- readRDS("analysis/data/Code-generated-data/00_03_IFR_matrix_coefficients_log_scale_new_pop_str_ests.rds")
 
 # Translate this matrix into probability of death: using the Slopes and Intercepts, I need to calculate specific IFR by age groups
 IFR_Age_var_slope_int <- t(apply(IFR_mat, 1, function(x){
@@ -153,15 +156,20 @@ IFR_vals_1 <- !apply(IFR_Age_var_slope_int, MARGIN = 1, FUN = function(x){x/(100
 
 Prob_death_logical <- IFR_vals_1
 Prob_deaths_index <- which(IFR_vals_1)
+IFR_list <- as.list(data.frame(t(IFR_Age_var_slope_int/100)))
+# lapply(IFR_list, table)
 Prob_Death_List <- as.list(data.frame(apply(IFR_Age_var_slope_int,1, function(x){x/(100*squire::parameters_explicit_SEEIR("Zambia")$prob_hosp)})))
 
 # min(IFR_Age_var_slope_int[,1])
 
 # min(IFR_Age_var_slope_int[,1])/(100*squire::parameters_explicit_SEEIR("Zambia")$prob_hosp[1])
 
-# saveRDS(Prob_death_logical, "analysis/data/Code-generated-data/00_03_Prob_death_logical_log_sc.rds")
-# saveRDS(Prob_deaths_index, "analysis/data/Code-generated-data/00_03_Prob_deaths_index_log_sc.rds")
-# saveRDS(Prob_Death_List, "analysis/data/Code-generated-data/00_03_Prob_Death_List_log_sc.rds")
+saveRDS(Prob_death_logical, "analysis/data/Code-generated-data/00_03_Prob_death_logical_log_sc_new_pop.rds")
+saveRDS(Prob_deaths_index, "analysis/data/Code-generated-data/00_03_Prob_deaths_index_log_sc_new_pop.rds")
+saveRDS(Prob_Death_List, "analysis/data/Code-generated-data/00_03_Prob_Death_List_log_sc_new_pop.rds")
+saveRDS(IFR_list, "analysis/data/Code-generated-data/00_03_IFR_List_log_sc_new_pop.rds")
+
+IFR_list <- readRDS("analysis/data/Code-generated-data/00_03_IFR_List_log_sc_new_pop.rds")
 
 
 # Prob_Death_Matrix <- as.list(data.frame(apply(IFR_Age_var_slope_int_fil,1, function(x){x/(100*squire::parameters_explicit_SEEIR("Zambia")$prob_hosp)})))
@@ -185,6 +193,17 @@ Prob_Death_List <- as.list(data.frame(apply(IFR_Age_var_slope_int,1, function(x)
 # Calculate total IFR:
 IFR_Sum_Zam <- sum(IFR_Age * get_population("Zambia")$n/sum(get_population("Zambia")$n))
 IFR_Sum_Lus <- sum(IFR_Age*1.25 * pop_st_lu/sum(pop_st_lu))
+IFR_Sum_Lus <- sum(IFR_Age * pop_st_lu/sum(pop_st_lu))
+
+IFR_Sum_Lus <- 100*sum(IFR_list$X40 * pop_st_lu/sum(pop_st_lu))
+IFR_Sum_Lus <- 100*sum(IFR_list$X41 * pop_st_lu/sum(pop_st_lu))
+IFR_Sum_Lus <- 100*sum(IFR_list$X42 * pop_st_lu/sum(pop_st_lu))
+IFR_Sum_Lus <- 100*sum(IFR_list$X43 * pop_st_lu/sum(pop_st_lu))
+
+IFR_Sum_Kenya <- 100*sum(IFR_list$X41 * get_population("Kenya")$n/sum(get_population("Kenya")$n))
+IFR_Sum_SA <- 100*sum(IFR_list$X41 * get_population("South Africa")$n/sum(get_population("South Africa")$n))
+
+
 # saveRDS(list(IFR_Sum_Zam = IFR_Sum_Zam, IFR_Sum_Lus = IFR_Sum_Lus), "analysis/data/Code-generated-data/00_03c_Total_IFR_Zambia_Lusaka.rds")
 ##############################################
 # sum(100*(Zmb_p$prob_hosp * prob_death_tot)* get_population("United Kingdom")$n/sum(get_population("United Kingdom")$n))
@@ -193,6 +212,15 @@ IFR_Sum_Lus <- sum(IFR_Age*1.25 * pop_st_lu/sum(pop_st_lu))
 # sum(IFR_Age* get_population("Nicaragua")$n/sum(get_population("Nicaragua")$n))
 # sum(IFR_Age* get_population("Grenada")$n/sum(get_population("Grenada")$n))
 # sum(IFR_Age* get_population("Malta")$n/sum(get_population("Malta")$n))
+
+### Plots
+# plot(x = IFR_Age_gr, y = log(IFR_Age))
+# abline(lm(log(IFR_Age) ~ seq(2.5, 82.5, by = 5)))
+# points(x = IFR_Age_gr, y = log(IFR_Age_var_slope_int[41,]), col = 2)
+
+# plot(x = IFR_Age_gr, y = IFR_Age)
+# points(x = IFR_Age_gr, y = IFR_Age_var_slope_int[41,], col = 2)
+
 
 ###############################################
 ###############################################
@@ -250,28 +278,28 @@ saveRDS(list(Death_Dur_Weighted = Death_Dur_Weighted, Surv_Dur_Weighted = Surv_D
 
 
 ## Time series data
-BMJ_data_report <- data.frame(
-  "Time_Period" = c("W24-W25","W26-W27","W28-W29","W30-W31","W32-W33","W34-W35","W36-W37","W38-W39"),
-  "TotSamDeaths" = c(51,25,22,26,39,40,53,37),
-  "CovSamDeaths_Strict" = c(2,4,14,13,11,8,2,4),
-  "CovSamDeaths" = c(2,4,14,13,11,8,2,4) + c(0,1,2,1,3,0,4,1))
-saveRDS(BMJ_data_report, "analysis/data/Code-generated-data/00_05_BMJ_report_data_time.rds")
-
-## Estimating total deaths in Lusaka PROVINCE from BMJ report
-pop_st_lu_prov <- readRDS("analysis/data/Code-generated-data/00_02_Lusaka_Prov_Pop_Struc_2020_opendataforafrica.rds")
-
-BMJ_data_report_lus_prov_ests <- BMJ_data_report %>%
-  mutate(TotEstCovDeathsLus_10x = CovSamDeaths*10/0.8,
-         Sampling = c(5,5,5,5,3,3,3*1/10+2*9/10,2),  # Sampling was 1 in 5 for June, July, 1 in 3 for Aug, 1 in 2 for Sep.
-         Cap = c(1,1,1,1,1,1,1/10,0)) %>% # Daily tests were capped at 5 or 6 in June, July and Aug. No cap in Sep.
-  mutate(TotEstCovDeathsLus_Low_Est = CovSamDeaths*Sampling/0.8,
-         TotEstCovDeathsLus_High_Est = (CovSamDeaths*Sampling + CovSamDeaths/TotSamDeaths * Cap*(3600-sum(TotSamDeaths*Sampling))/(sum(Cap)))/0.8,
-         TotEstCovDeathsLus_High_Est_Strict = (CovSamDeaths_Strict*Sampling + CovSamDeaths_Strict/TotSamDeaths * Cap*(3600-sum(TotSamDeaths*Sampling))/(sum(Cap)))/0.8,
-         q1_10x = TotEstCovDeathsLus_10x/sum(pop_st_lu_prov),
-         q1_High_Est = TotEstCovDeathsLus_High_Est/sum(pop_st_lu_prov),
-         q1_High_Est_Strict = TotEstCovDeathsLus_High_Est_Strict/sum(pop_st_lu_prov),
-         Mort_deaths_High_Est = TotSamDeaths * Sampling + Cap*(3600-sum(TotSamDeaths*Sampling))/(sum(Cap)))
-saveRDS(BMJ_data_report_lus_prov_ests, "analysis/data/Code-generated-data/00_05_BMJ_report_data_time_lus_prov_ests.rds")
+# BMJ_data_report <- data.frame(
+#   "Time_Period" = c("W24-W25","W26-W27","W28-W29","W30-W31","W32-W33","W34-W35","W36-W37","W38-W39"),
+#   "TotSamDeaths" = c(51,25,22,26,39,40,53,37),
+#   "CovSamDeaths_Strict" = c(2,4,14,13,11,8,2,4),
+#   "CovSamDeaths" = c(2,4,14,13,11,8,2,4) + c(0,1,2,1,3,0,4,1))
+# saveRDS(BMJ_data_report, "analysis/data/Code-generated-data/00_05_BMJ_report_data_time.rds")
+#
+# ## Estimating total deaths in Lusaka PROVINCE from BMJ report
+# pop_st_lu_prov <- readRDS("analysis/data/Code-generated-data/00_02_Lusaka_Prov_Pop_Struc_2020_opendataforafrica.rds")
+#
+# BMJ_data_report_lus_prov_ests <- BMJ_data_report %>%
+#   mutate(TotEstCovDeathsLus_10x = CovSamDeaths*10/0.8,
+#          Sampling = c(5,5,5,5,3,3,3*1/10+2*9/10,2),  # Sampling was 1 in 5 for June, July, 1 in 3 for Aug, 1 in 2 for Sep.
+#          Cap = c(1,1,1,1,1,1,1/10,0)) %>% # Daily tests were capped at 5 or 6 in June, July and Aug. No cap in Sep.
+#   mutate(TotEstCovDeathsLus_Low_Est = CovSamDeaths*Sampling/0.8,
+#          TotEstCovDeathsLus_High_Est = (CovSamDeaths*Sampling + CovSamDeaths/TotSamDeaths * Cap*(3600-sum(TotSamDeaths*Sampling))/(sum(Cap)))/0.8,
+#          TotEstCovDeathsLus_High_Est_Strict = (CovSamDeaths_Strict*Sampling + CovSamDeaths_Strict/TotSamDeaths * Cap*(3600-sum(TotSamDeaths*Sampling))/(sum(Cap)))/0.8,
+#          q1_10x = TotEstCovDeathsLus_10x/sum(pop_st_lu_prov),
+#          q1_High_Est = TotEstCovDeathsLus_High_Est/sum(pop_st_lu_prov),
+#          q1_High_Est_Strict = TotEstCovDeathsLus_High_Est_Strict/sum(pop_st_lu_prov),
+#          Mort_deaths_High_Est = TotSamDeaths * Sampling + Cap*(3600-sum(TotSamDeaths*Sampling))/(sum(Cap)))
+# saveRDS(BMJ_data_report_lus_prov_ests, "analysis/data/Code-generated-data/00_05_BMJ_report_data_time_lus_prov_ests.rds")
 
 # Plot Data estimates for
 # p1 <- ggplot(BMJ_data_report_lus_prov_ests, aes(x = Time_Period, y = CovSamDeaths/TotSamDeaths)) + geom_point(aes(colour = "CT<45")) +
@@ -299,25 +327,25 @@ saveRDS(BMJ_data_report_lus_prov_ests, "analysis/data/Code-generated-data/00_05_
 # (Min_cvd_deaths + cvd_death_prev * Unacc_Deaths_Attrib)/0.8 # Add min cvd deaths with estimated
 
 # Break down BMJ data by day:
-df_off_fil <- df_Off_Lu_Prov %>% filter(date >= "2020-06-08" & date <= "2020-09-27")
-df_off_fil <- df_off_fil %>%
-  mutate(TimeFrame = cut.Date(date, breaks = as.Date(c("2020-06-08","2020-06-22","2020-07-06","2020-07-20","2020-08-03","2020-08-17","2020-08-31","2020-09-14","2020-09-28")), labels = 1:8, start.on.monday = T))
-#
-BMJ_data_report_lus_prov_ests <- BMJ_data_report_lus_prov_ests %>% mutate(TimePeriod = 1:8) # Assign week labels to BMJ data
-df_off_fil_gr <- df_off_fil %>% group_by(TimeFrame) %>%
-  summarise(FrameDeaths = sum(deaths)) # Get the official sum of deaths in each timeframe
+# df_off_fil <- df_Off_Lu_Prov %>% filter(date >= "2020-06-08" & date <= "2020-09-27")
+# df_off_fil <- df_off_fil %>%
+#   mutate(TimeFrame = cut.Date(date, breaks = as.Date(c("2020-06-08","2020-06-22","2020-07-06","2020-07-20","2020-08-03","2020-08-17","2020-08-31","2020-09-14","2020-09-28")), labels = 1:8, start.on.monday = T))
+# #
+# BMJ_data_report_lus_prov_ests <- BMJ_data_report_lus_prov_ests %>% mutate(TimePeriod = 1:8) # Assign week labels to BMJ data
+# df_off_fil_gr <- df_off_fil %>% group_by(TimeFrame) %>%
+#   summarise(FrameDeaths = sum(deaths)) # Get the official sum of deaths in each timeframe
 
 # Take the total number of estimated deaths in Lusaka
 # Deduct the ones that were officially reported, and distribute the other deaths evenly
 # 10x, lower limit and higher limit.
-df_off_fil <- df_off_fil %>% mutate(Est_Deaths_BMJ_10 = rep((BMJ_data_report_lus_prov_ests$TotEstCovDeathsLus_10x - df_off_fil_gr$FrameDeaths)/14, each = 14) + deaths,
-                                    Est_Deaths_BMJ_Sam_LE = rep((BMJ_data_report_lus_prov_ests$TotEstCovDeathsLus_Low_Est - df_off_fil_gr$FrameDeaths)/14, each = 14) + deaths,
-                                    Est_Deaths_BMJ_Sam_HE = rep((BMJ_data_report_lus_prov_ests$TotEstCovDeathsLus_High_Est - df_off_fil_gr$FrameDeaths)/14, each = 14) + deaths,
-                                    Est_Deaths_BMJ_Sam_HE_Strict = rep((BMJ_data_report_lus_prov_ests$TotEstCovDeathsLus_High_Est_Strict - df_off_fil_gr$FrameDeaths)/14, each = 14) + deaths) %>%
-  mutate(q1_10x = Est_Deaths_BMJ_10/sum(pop_st_lu_prov),
-         q1_HighEst = Est_Deaths_BMJ_Sam_HE/sum(pop_st_lu_prov),
-         q1_HighEst_Strict = Est_Deaths_BMJ_Sam_HE_Strict/sum(pop_st_lu_prov))
-saveRDS(object = df_off_fil, file = "analysis/data/Code-generated-data/00_05_BMJ_report_data_DailyEsts.rds")
+# df_off_fil <- df_off_fil %>% mutate(Est_Deaths_BMJ_10 = rep((BMJ_data_report_lus_prov_ests$TotEstCovDeathsLus_10x - df_off_fil_gr$FrameDeaths)/14, each = 14) + deaths,
+#                                     Est_Deaths_BMJ_Sam_LE = rep((BMJ_data_report_lus_prov_ests$TotEstCovDeathsLus_Low_Est - df_off_fil_gr$FrameDeaths)/14, each = 14) + deaths,
+#                                     Est_Deaths_BMJ_Sam_HE = rep((BMJ_data_report_lus_prov_ests$TotEstCovDeathsLus_High_Est - df_off_fil_gr$FrameDeaths)/14, each = 14) + deaths,
+#                                     Est_Deaths_BMJ_Sam_HE_Strict = rep((BMJ_data_report_lus_prov_ests$TotEstCovDeathsLus_High_Est_Strict - df_off_fil_gr$FrameDeaths)/14, each = 14) + deaths) %>%
+#   mutate(q1_10x = Est_Deaths_BMJ_10/sum(pop_st_lu_prov),
+#          q1_HighEst = Est_Deaths_BMJ_Sam_HE/sum(pop_st_lu_prov),
+#          q1_HighEst_Strict = Est_Deaths_BMJ_Sam_HE_Strict/sum(pop_st_lu_prov))
+# saveRDS(object = df_off_fil, file = "analysis/data/Code-generated-data/00_05_BMJ_report_data_DailyEsts.rds")
 
 # ggplot(df_off_fil, aes(x = date, y = Est_Deaths_BMJ_Sam_HE/0.8)) + geom_point(aes(colour = "CT<45")) +
 #   xlab("Date") + ylab("Estimated COVID-19 +ve deaths in Lusaka (dummy)") +
@@ -442,127 +470,200 @@ p1 <- ggplot(df_MPM, aes(x = date, y = Samples)) + geom_point(colour = "black") 
 
 
 ##############################################
-### 7. Mortuary data
+### 7. Burial data
 ##############################################
-
-UTH_Mortality_Total <- read.csv(file = "analysis/data/raw/BMJ_UTH_excess_mortality/mortuary_records.csv")
-UTH_Mortality_Total <- UTH_Mortality_Total %>%
+library(dplyr);library(ggplot2)
+# UTH_Mortality_Total <- read.csv(file = "analysis/data/raw/BMJ_UTH_excess_mortality/mortuary_records.csv")
+Total_burial_registrations <- read.csv(file = "analysis/data/raw/BMJ_UTH_excess_mortality/mortuary_records_v2.csv")
+Total_burial_registrations %>% filter(age_years ==".") %>% pull(dod) %>% as.Date("%m/%d/%y") %>% format(format = "%Y") %>% table()
+Total_burial_registrations <- Total_burial_registrations %>%
   filter(age_years !=".",
          dod !=".") %>%
   mutate(date = as.Date(dod, "%m/%d/%y"),
-         Age_gr = cut(as.numeric(age_years), c(seq(0,80,by = 5),Inf), right = F, labels = F)) %>%
+         Age_gr = cut(as.numeric(age_years), c(seq(0,80,by = 5),Inf), right = F, labels = F),
+         Week_st = lubridate::floor_date(date, unit = "week", week_start = 1)) %>%
   select(-sex, -dod, -age_years)
 
+Total_burial_registrations_by_date <- Total_burial_registrations %>% group_by(date) %>%
+  summarise(Total_deaths = length(date))
+
+Total_burial_registrations_by_week <- Total_burial_registrations %>%
+  group_by(Week_st) %>%
+  summarise(Total_deaths = length(date))
+
+saveRDS(object = Total_burial_registrations_by_week, file = "analysis/data/Code-generated-data/00_07_Burial_registrations_by_week_2017_to_2021.rds")
+
+
+## Graphs
+p_tot_bur_reg_all_years <- ggplot(Total_burial_registrations_by_date, aes(x = date, y = Total_deaths)) +
+  annotate(geom = "rect", xmin = as.Date("2020-01-25"), xmax = as.Date("2020-02-15"), ymin = 0, ymax = Inf,
+           fill = "red", alpha = 0.2) +
+  annotate(geom = "rect", xmin = as.Date("2020-03-10"), xmax = as.Date("2020-05-15"), ymin = 0, ymax = Inf,
+           fill = "red", alpha = 0.2) +
+  annotate(geom = "rect", xmin = as.Date("2020-07-01"), xmax = as.Date("2020-07-15"), ymin = 0, ymax = Inf,
+           fill = "red", alpha = 0.2) +
+  # geom_rect(aes(xmin = as.Date("2020-03-10"), xmax = as.Date("2020-05-15"), ymin = 0, ymax = Inf), alpha = 0.1, fill = "lightblue", inherit.aes = F) +
+  geom_bar(stat = "identity") +
+  # geom_vline(xintercept = as.Date(c("2020-06-15","2020-10-05")), col = "darkred", linetype =2) +
+  geom_hline(yintercept = 20) +
+  geom_vline(xintercept = as.Date(c("2020-01-01")), col = "darkred", linetype =2) +
+  ylab("Standardised weekly deaths") +
+  xlab("Date") +
+  theme_minimal()
+
+# UTH_Mortality_Total_date %>%   tidyr::complete(date = seq.Date(min(date), max(date), by="day"), fill = list(Total_deaths = 0)) %>%
+#   filter(Total_deaths <10, date >= as.Date("2020-01-01"), date < as.Date("2021-07-01")) %>%
+#   write.csv(file = "analysis/data/Code-generated-data/00_07_low_mortuary_deaths_2020_2021.csv")
+
+# UTH_Mortality_Total_date %>%   tidyr::complete(date = seq.Date(min(date), max(date), by="day"), fill = list(Total_deaths = 0)) %>%
+#   filter(Total_deaths <20, date >= as.Date("2018-01-01")) %>%
+#   write.csv(file = "analysis/data/Code-generated-data/00_07_low_mortuary_deaths_2018_2021.csv")
+
+p_tot_bur_reg_all_years_weeks <- ggplot(Total_burial_registrations_by_week, aes(x = as.Date(Week_st), y = Total_deaths)) +
+  annotate(geom = "rect", xmin = as.Date("2020-01-25"), xmax = as.Date("2020-02-15"), ymin = 0, ymax = Inf,
+           fill = "red", alpha = 0.2) +
+  annotate(geom = "rect", xmin = as.Date("2020-03-10"), xmax = as.Date("2020-05-15"), ymin = 0, ymax = Inf,
+           fill = "red", alpha = 0.2) +
+  annotate(geom = "rect", xmin = as.Date("2020-07-01"), xmax = as.Date("2020-07-15"), ymin = 0, ymax = Inf,
+           fill = "red", alpha = 0.2) +
+  geom_bar(stat = "identity") +
+# geom_vline(xintercept = as.Date(c("2020-06-15","2020-10-05")), col = "darkred", linetype =2) +
+ylab("Deaths") +
+  xlab("Date") +
+  theme_minimal() +
+  ggtitle("Lusaka burial registrations") +
+  ylab("Weekly registrations") +
+  scale_x_date(date_breaks="1 year", date_labels="%Y", minor_breaks = "1 month",)
+
+pdf(file = "analysis/figures/00_07_01_Total_Bur_Regs_Weekly_Wide.pdf", height = 2, width = 6)
+p_tot_bur_reg_all_years_weeks
+dev.off()
+
+tiff(file = "analysis/figures/00_07_01_Total_Bur_Regs_Weekly_Wide.tiff", res = 300, height = 2, width = 6, units = "in")
+p_tot_bur_reg_all_years_weeks
+dev.off()
+
 ## Plot all data by weekly deaths:
-UTH_Mortality_Total_Weeks_Since_2019 <- UTH_Mortality_Total %>%
+Tot_burial_registrations_weeks_since_2019 <- Total_burial_registrations %>%
   filter(date >="2019-01-01") %>%
   group_by(date,Age_gr) %>%
-  summarise(Mort_deaths = length(date), date = min(date)) %>%
+  summarise(Bur_regs = length(date), date = min(date)) %>%
   ungroup() %>%
-  tidyr::complete(Age_gr, date, fill = list(Mort_deaths = 0)) %>%
+  tidyr::complete(Age_gr, date, fill = list(Bur_regs = 0)) %>%
   mutate(Week_gr = cut.Date(date, breaks = "1 week", labels = FALSE)) %>%
   group_by(Week_gr, Age_gr) %>%
-  summarise(Mort_deaths = sum(Mort_deaths), date = min(date))
+  summarise(Bur_regs = sum(Bur_regs), date = min(date))
 
 Age_groups.labs <- c(paste0("Age: ", c("0-4","5-9","10-14","15-19","20-24","25-29",
                                        "30-34","35-39","40-44","45-49","50-54","55-59",
                                        "60-64","65-69","70-74","75-79","80+")))
 names(Age_groups.labs) <- 1:17
 
-U5_trends <- UTH_Mortality_Total_Weeks_Since_2019 %>% filter(Age_gr==1) %>%
-  select(Week_gr, Mort_deaths) %>%
-  rename(U5_mort_deaths = Mort_deaths)
+U5_trends <- Tot_burial_registrations_weeks_since_2019 %>% filter(Age_gr==1) %>%
+  select(Week_gr, Bur_regs) %>%
+  rename(U5_Bur_regs = Bur_regs)
 
-UTH_Mortality_Total_Weeks_Since_2019 <- UTH_Mortality_Total_Weeks_Since_2019 %>% merge(U5_trends) %>%
-  mutate(Standardised_mort = Mort_deaths/U5_mort_deaths)
+Tot_burial_registrations_weeks_since_2019 <- Tot_burial_registrations_weeks_since_2019 %>% merge(U5_trends) %>%
+  mutate(Standardised_mort = Bur_regs/U5_Bur_regs)
 
-p_mort_2018_2019 <- ggplot(UTH_Mortality_Total_Weeks_Since_2019 %>% filter(Age_gr!=1), aes(x = date, y = Standardised_mort)) +
+p_bur_regs_2018_2019 <- ggplot(Tot_burial_registrations_weeks_since_2019 %>% filter(Age_gr %in%c(1, 13:17)), aes(x = date, y = Bur_regs)) +  # p_mort_2018_2019 <- ggplot(UTH_Mortality_Total_Weeks_Since_2019, aes(x = date, y = Mort_deaths)) +
+  # p_mort_2018_2019 <- ggplot(UTH_Mortality_Total_Weeks_Since_2019 %>% filter(Age_gr %in%c(12:17)), aes(x = date, y = Mort_deaths)) +
   # geom_point() +
-  geom_line() +
-  facet_wrap(~Age_gr, labeller = labeller(Age_gr = Age_groups.labs), scales = "free_y", nrow = 4) +
-  geom_vline(xintercept = as.Date(c("2020-06-15","2020-10-05")), col = "darkred", linetype =2) +
-  ylab("Standardised weekly deaths") +
+  annotate(geom = "rect", xmin = as.Date("2020-06-15"), xmax = as.Date("2020-09-05"), ymin = 0, ymax = Inf,
+           fill = "blue", alpha = 0.2) +
+  annotate(geom = "rect", xmin = as.Date("2020-12-15"), xmax = as.Date("2021-03-01"), ymin = 0, ymax = Inf,
+           fill = "blue", alpha = 0.2) +
+  annotate(geom = "rect", xmin = as.Date("2021-05-01"), xmax = as.Date("2021-07-01"), ymin = 0, ymax = Inf,
+           fill = "blue", alpha = 0.2) +
+  # geom_line() +
+  geom_bar(stat = "identity") +
+  # facet_wrap(~Age_gr, labeller = labeller(Age_gr = Age_groups.labs), ncol = 2) +
+  facet_wrap(~Age_gr, labeller = labeller(Age_gr = Age_groups.labs), nrow = 3) +
+  # geom_vline(xintercept = as.Date(c("2020-06-15","2020-10-05")), col = "darkred", linetype =2) +
+  ylab("Weekly burial registrations") +
   xlab("Date") +
-  theme_minimal()
+  theme_minimal() +
+  scale_x_date(date_breaks="1 year", date_labels="%Y", minor_breaks = "1 month")
 
-pdf("analysis/figures/00_07_01_Mortuary_Weekly_Deaths_All_Data_Since_2019.pdf", width = 15)
-p_mort_2018_2019
+
+pdf("analysis/figures/00_07_01_Tot_Bur_Regs_Weekly_Since_2019_older.pdf", width = 6, height = 4)
+p_bur_regs_2018_2019
 dev.off()
 
-tiff("analysis/figures/00_07_01_Mortuary_Weekly_Deaths_All_Data_Since_2019.tiff", width = 12, height = 7, res = 300, units = "in")
-p_mort_2018_2019
+tiff("analysis/figures/00_07_01_Tot_Bur_Regs_Weekly_Since_2019_older.tiff", width = 6, height = 4, res = 300, units = "in")
+p_bur_regs_2018_2019
 # ggpubr::theme_pubr(legend = "bottom", x.text.angle = 90)
 dev.off()
 
 
 
-UTH_Mortality_Total_2018_2019 <- UTH_Mortality_Total %>%
+Total_burial_registrations_2018_2019 <- Total_burial_registrations %>%
   filter(date >="2018-01-01", date<"2020-01-05") %>%
-  group_by(date,Age_gr) %>% summarise(Mort_deaths = length(date)) %>% ungroup() %>%
-  tidyr::complete(date, Age_gr, fill = list(Mort_deaths = 0))
+  group_by(date,Age_gr) %>% summarise(Bur_regs = length(date)) %>% ungroup() %>%
+  tidyr::complete(date, Age_gr, fill = list(Bur_regs = 0))
 
-readRDS("analysis/data/Code-generated-data/00_07_Mortuary_data_age_weeks.rds") %>%
-  complete(Age_gr, Week_gr, fill = list(deaths=0))
-p7_1 <- ggplot(data = UTH_Mortality_Total_2018_2019, aes(x = date, y = Mort_deaths)) +
+# readRDS("analysis/data/Code-generated-data/00_07_Mortuary_data_age_weeks.rds") %>%
+  # tidyr::complete(Age_gr, Week_gr, fill = list(deaths=0))
+p7_1 <- ggplot(data = Total_burial_registrations_2018_2019, aes(x = date, y = Bur_regs)) +
   geom_vline(xintercept = as.Date(c("2018-01-01","2019-01-01","2020-01-01")), col = "darkred", linetype =2) +
   geom_vline(xintercept = as.Date(c("2018-07-01","2019-07-01")), col = "darkred", linetype =3) +
   geom_point(size = 0.5) +
   geom_smooth() +
   facet_wrap(~Age_gr, labeller = labeller(Age_gr = Age_groups.labs)) +
-  ggpubr::theme_pubr(legend = "bottom", x.text.angle = 90) + xlab("Date") + ylab("Daily mortuary deaths")
+  ggpubr::theme_pubr(legend = "bottom", x.text.angle = 90) + xlab("Date") + ylab("Daily burial registrations")
 
-UTH_Mortality_Total_2018_2019_Weeks <- UTH_Mortality_Total_2018_2019 %>%
+Total_burial_registrations_2018_2019_Weeks <- Total_burial_registrations_2018_2019 %>%
   mutate(Week_gr = cut.Date(date, breaks = "1 week", labels = FALSE)) %>%
   group_by(Week_gr, Age_gr) %>%
-  summarise(Mort_deaths = sum(Mort_deaths), date = min(date))
+  summarise(Bur_regs = sum(Bur_regs), date = min(date))
 
-p7_2 <- ggplot(data = UTH_Mortality_Total_2018_2019_Weeks, aes(x = date, y = Mort_deaths)) +
+p7_2 <- ggplot(data = Total_burial_registrations_2018_2019_Weeks, aes(x = date, y = Bur_regs)) +
   geom_vline(xintercept = as.Date(c("2018-01-01","2019-01-01","2020-01-01")), col = "darkred", linetype =2) +
   geom_vline(xintercept = as.Date(c("2018-07-01","2019-07-01")), col = "darkred", linetype =3) +
-  geom_point(aes(color = "Weekly deaths"), size = 0.5) +
+  geom_point(aes(color = "Weekly burial registrations"), size = 0.5) +
   geom_smooth(aes(color = "LOESS smoothed line")) +
   facet_wrap(~Age_gr, labeller = labeller(Age_gr = Age_groups.labs)) +
-  ggpubr::theme_pubr(legend = "bottom", x.text.angle = 90) + xlab("Date") + ylab("Weekly mortuary deaths") +
-  ggtitle("Mortuary deaths 2018-2019") +
-  scale_color_manual(NULL, breaks = c("Weekly deaths", "LOESS smoothed line"), values = c("black", "blue"),
+  ggpubr::theme_pubr(legend = "bottom", x.text.angle = 90) + xlab("Date") + ylab("Weekly burial registrations") +
+  ggtitle("Burial registrations 2018-2019") +
+  scale_color_manual(NULL, breaks = c("Weekly burial registrations", "LOESS smoothed line"), values = c("black", "blue"),
                      guide = guide_legend(override.aes = list(linetype = c(NA, 1),
                                                               fill = c(NA,"darkgrey"))))
 
 
 
-UTH_Mortality_Total_Study_Period_2020 <- UTH_Mortality_Total %>%
+Total_burial_registrations_Study_Period_2020 <- Total_burial_registrations %>%
   filter(date >="2020-01-01", date<="2020-12-31") %>%
-  # filter(date >="2020-06-01", date<"2020-10-20") %>%
-  group_by(date,Age_gr) %>% summarise(Mort_deaths = length(date)) %>% ungroup() %>%
+  group_by(date,Age_gr) %>% summarise(Bur_regs = length(date)) %>% ungroup() %>%
   tidyr::complete(date, Age_gr, fill = list(Mort_deaths = 0))
 
-p7_3 <- ggplot(data = UTH_Mortality_Total_Study_Period_2020, aes(x = date, y = Mort_deaths)) +
+p7_3 <- ggplot(data = Total_burial_registrations_Study_Period_2020, aes(x = date, y = Bur_regs)) +
   # geom_vline(xintercept = as.Date(c("2018-01-01","2019-01-01","2020-01-01")), col = "darkred", linetype =2) +
   # geom_vline(xintercept = as.Date(c("2018-07-01","2019-07-01")), col = "darkred", linetype =3) +
   geom_point(size = 0.5) +
   geom_smooth() +
   facet_wrap(~Age_gr, labeller = labeller(Age_gr = Age_groups.labs)) +
-  ggpubr::theme_pubr(legend = "bottom", x.text.angle = 90) + xlab("Date") + ylab("Daily mortuary deaths")
+  ggpubr::theme_pubr(legend = "bottom", x.text.angle = 90) + xlab("Date") + ylab("Daily burial registrations")
 
-UTH_Mortality_Total_Study_Period_2020_Weeks <- UTH_Mortality_Total_Study_Period_2020 %>%
+Total_burial_registrations_Study_Period_2020_Weeks <- Total_burial_registrations_Study_Period_2020 %>%
   mutate(Week_gr = cut.Date(date, breaks = "1 week", labels = FALSE)) %>%
   group_by(Week_gr, Age_gr) %>%
-  summarise(Mort_deaths = sum(Mort_deaths), date = min(date))
+  summarise(Bur_regs = sum(Bur_regs), date = min(date)) %>%
+  complete(fill = list(Bur_regs = 0))
 
-UTH_Mortality_Total_2018_2019_Weeks_Av_Age <- UTH_Mortality_Total_2018_2019_Weeks %>% group_by(Age_gr) %>%
-  summarise(Av_deaths_Age = mean(Mort_deaths))
+Total_burial_registrations_2018_2019_Weeks_Av_Age <- Total_burial_registrations_2018_2019_Weeks %>% group_by(Age_gr) %>%
+  summarise(Av_bur_regs_age = mean(Bur_regs))
 
-p7_4 <- ggplot(data = UTH_Mortality_Total_Study_Period_2020_Weeks, aes(x = date, y = Mort_deaths)) +
+p7_4 <- ggplot(data = Total_burial_registrations_Study_Period_2020_Weeks, aes(x = date, y = Bur_regs)) +
   geom_vline(aes(xintercept = as.Date(c("2020-06-15"))), linetype =2) +
   geom_vline(aes(xintercept = as.Date(c("2020-10-04"))), linetype =2) +
   # geom_vline(xintercept = as.Date(c("2018-07-01","2019-07-01")), col = "darkred", linetype =3) +
   geom_smooth(aes(alpha = "LOESS smoothed line")) +
   facet_wrap(~Age_gr, labeller = labeller(Age_gr = Age_groups.labs)) +
-  ggpubr::theme_pubr(legend = "bottom", x.text.angle = 90) + xlab("Date") + ylab("Weekly mortuary deaths") +
-  geom_hline(data = UTH_Mortality_Total_2018_2019_Weeks_Av_Age, aes(yintercept = Av_deaths_Age, alpha = "Mean 2018-2019 deaths"), linetype = 1, color = "darkred") +
-  geom_point(aes(alpha = "Weekly deaths"), size = 0.5) +
-  ggtitle("Mortuary deaths 2020") +
-  scale_alpha_manual(NULL, breaks = c("Weekly deaths", "LOESS smoothed line", "Mean 2018-2019 deaths"), values = c(1,1,1),
+  ggpubr::theme_pubr(legend = "bottom", x.text.angle = 90) + xlab("Date") + ylab("Weekly burial registrations") +
+  geom_hline(data = Total_burial_registrations_2018_2019_Weeks_Av_Age, aes(yintercept = Av_bur_regs_age, alpha = "Mean 2018-2019 burial registrations"), linetype = 1, color = "darkred") +
+  geom_point(aes(alpha = "Weekly burial registrations"), size = 0.5) +
+  ggtitle("Burial registrations 2020") +
+  scale_alpha_manual(NULL, breaks = c("Weekly burial registrations", "LOESS smoothed line", "Mean 2018-2019 burial registrations"), values = c(1,1,1),
                      guide = guide_legend(override.aes = list(color = c("black", "blue", "darkred"),
                                                               linetype = c(NA, 1, 1),
                                                               # linewidth = c(NA, 1, 0.5),
@@ -594,31 +695,27 @@ p7_5 <- ggplot(data = UTH_Mortality_Total_Study_Period_2020_Weeks %>% filter(dat
 
 
 
-UTH_deaths_by_age <- UTH_Mortality_Total %>% #filter(date != ".") %>%
+Total_burial_registrations_by_age <- Total_burial_registrations %>% #filter(date != ".") %>%
   # filter(date >= "2020-06-01" & date < "2020-11-01")
   filter(date >= "2020-06-15" & date < "2020-10-05") %>%
-  group_by(date,Age_gr) %>% summarise(Mort_deaths = length(date)) %>%
+  group_by(date,Age_gr) %>% summarise(Bur_regs = length(date)) %>%
   ungroup %>%
-  tidyr::complete(date, Age_gr, fill = list(Mort_deaths = 0))
+  tidyr::complete(date, Age_gr, fill = list(Bur_regs = 0))
 # filter(date >= "2020-06-15" & date <= "2020-11-01")
 
-UTH_deaths_by_date <- UTH_Mortality_Total %>% #filter(dod != ".") %>%
-  group_by(date) %>% summarise(Mort_deaths = length(date)) %>%
+Total_burial_registrations_by_date <- Total_burial_registrations %>% #filter(dod != ".") %>%
+  group_by(date) %>% summarise(Bur_regs = length(date)) %>%
   # filter(date >= "2020-06-15" & date <= "2020-11-01")
-  filter(date >= "2020-06-15" & date <= "2020-10-05")
+  filter(date >= "2020-06-15" & date <= "2020-10-05") %>%
+  tidyr::complete(date = seq.Date(min(date), max(date), by="day"), fill = list(Bur_regs = 0))
 
 
-date_list_Mort <- seq(min(UTH_deaths_by_date$date), max(UTH_deaths_by_date$date), by = 1)
-missing_dates_Mort <- date_list_Mort[!date_list_Mort %in% UTH_deaths_by_date$date] # Add missing dates with 0 deaths
-
-UTH_deaths_by_date <- add_row(UTH_deaths_by_date, date = missing_dates_Mort, Mort_deaths = 0) %>% arrange(date)
-
-UTH_deaths_by_week <- UTH_deaths_by_date %>%
+Total_burial_registrations_by_week <- Total_burial_registrations_by_date %>%
   mutate(Week_gr = cut.Date(date, breaks = "1 week", labels = FALSE)) %>%
   group_by(Week_gr) %>%
-  summarise(Mort_deaths = sum(Mort_deaths))
+  summarise(Bur_regs = sum(Bur_regs))
 
-p2 <- ggplot(UTH_deaths_by_date, aes(x = date, y = Mort_deaths)) + geom_point(colour = "black") +
+p2 <- ggplot(Total_burial_registrations_by_date, aes(x = date, y = Bur_regs)) + geom_point(colour = "black") +
   xlab("Date") + ylab("Total deaths registered in UTH mortuary") +
   ylim(0,100)
 
@@ -626,25 +723,42 @@ p2 <- ggplot(UTH_deaths_by_date, aes(x = date, y = Mort_deaths)) + geom_point(co
 #   xlab("Week") + ylab("Total deaths registered in UTH mortuary") +
 #   ylim(0,500)
 
-saveRDS(object = UTH_deaths_by_date, file = "analysis/data/Code-generated-data/00_07_Mortuary_data.rds")
-saveRDS(object = UTH_deaths_by_age, file = "analysis/data/Code-generated-data/00_07_Mortuary_data_age.rds")
+saveRDS(object = Total_burial_registrations_by_date, file = "analysis/data/Code-generated-data/00_07_Burial_registrations_by_date.rds")
+saveRDS(object = Total_burial_registrations_by_age, file = "analysis/data/Code-generated-data/00_07_Burial_registrations_by_age.rds")
 
-UTH_Mortality_Weeks <- UTH_Mortality_Total %>% filter(date>="2020-06-15" & date<"2020-10-05") %>%
+Total_burial_registrations_by_week <- Total_burial_registrations %>% filter(date>="2020-06-15" & date<"2020-10-05") %>%
   mutate(Week_gr = cut.Date(date, breaks = "1 week", labels = FALSE)) %>%
   group_by(Week_gr) %>%
-  summarise(deaths = length(date))
+  summarise(Bur_regs = length(date))
 
-saveRDS(object = UTH_Mortality_Weeks, file = "analysis/data/Code-generated-data/00_07_Mortuary_data_weeks.rds")
+saveRDS(object = Total_burial_registrations_by_week, file = "analysis/data/Code-generated-data/00_07_Burial_registrations_by_week.rds")
 
-UTH_Mortality_Age_Weeks <- UTH_Mortality_Total %>% filter(date>="2020-06-15" & date<"2020-10-05") %>%
+Total_burial_registrations_by_age_week <- Total_burial_registrations %>% filter(date>="2020-06-15" & date<"2020-10-05") %>%
   mutate(#Age_gr = cut(as.numeric(age_years), c(seq(0,80,by = 5),Inf), right = F, labels = F),
          Week_gr = cut.Date(date, breaks = "1 week", labels = FALSE)) %>%
   group_by(Week_gr, Age_gr) %>%
-  summarise(deaths = length(date))%>%
+  summarise(Bur_regs = length(date))%>%
   ungroup() %>%
-  complete(Week_gr, Age_gr, fill = list(deaths = 0))
+  tidyr::complete(Week_gr, Age_gr, fill = list(Bur_regs = 0))
 
-saveRDS(object = UTH_Mortality_Age_Weeks, file = "analysis/data/Code-generated-data/00_07_Mortuary_data_age_weeks.rds")
+saveRDS(object = Total_burial_registrations_by_age_week, file = "analysis/data/Code-generated-data/00_07_Burial_registrations_by_age_week.rds")
+
+
+
+# UTH_Mortality_Total_Study_Period_2020_plus <- UTH_Mortality_Total %>%
+#   filter(date >="2019-12-30") %>%
+#   mutate(Week_gr = cut.Date(date, breaks = "1 week", labels = FALSE),
+#          date_st = lubridate::floor_date(date, week_start = 1, unit = "week")) %>%
+#   group_by(Age_gr,Week_gr) %>%
+#   summarise(deaths = length(date),
+#             date_st = date_st[1]) %>%
+#   ungroup() %>% #group_by(date_st) %>%
+#   tidyr::complete(Week_gr, Age_gr,  fill = list(deaths = 0)) %>%
+#   ungroup() %>% group_by(Week_gr) %>% mutate(date_st = na.omit(unique(date_st)))
+#
+#
+#
+# saveRDS(object = UTH_Mortality_Total_Study_Period_2020_plus, file = "analysis/data/Code-generated-data/00_07_Mortuary_data_age_weeks_2020_plus.rds")
 
 
 ##############################################
@@ -760,11 +874,37 @@ saveRDS(Prob_death_per_day, "analysis/data/Code-generated-data/00_09_Crude_Morta
 ##############################################
 ### 10. PCR, Sero data from Mulenga et al.
 ##############################################
-Sero_prev <- c(val = 2.1, n = 2614, ci95l = 1.1, ci95h = 3.1)
+df <- read.csv(file = "analysis/data/raw/S2PS dataset for IFR model.csv")
+
+df %>% filter(!is.na(pcr), !is.na(elisa)) %>%
+  mutate(Pos = ifelse(pcr ==1 | elisa == 1, 1, 0)) %>%
+  summarise(Samples = length(Pos),
+            Pos_tests = sum(Pos),
+            Pos_prev = 100*sum(Pos)/length(Pos))
+
+df_pcr <- df %>% filter(!is.na(pcr)) %>%
+  mutate(Pos = ifelse(pcr ==1, 1, 0)) %>%
+  summarise(Samples = length(Pos),
+            Pos_tests = sum(Pos),
+            Pos_prev = 100*sum(Pos)/length(Pos))
+
+df_sero <- df %>% filter(!is.na(elisa)) %>%
+  mutate(Pos = ifelse(elisa ==1, 1, 0)) %>%
+  summarise(Samples = length(Pos),
+            Pos_tests = sum(Pos),
+            Pos_prev = 100*sum(Pos)/length(Pos))
+
+df_dates <- df %>% filter(date != "") %>% pull(date) %>% list(st_date = min(as.Date(., format = "%m/%d/%y")), end_date = max(as.Date(., format = "%m/%d/%y")))
+
+pcr_df <- data.frame(date_start = df_dates$st_date, date_end = df_dates$end_date,
+                    pos_tests = df_pcr$Pos_tests, samples = df_pcr$Samples)
+sero_df <- data.frame(date_start = df_dates$st_date, date_end = df_dates$end_date,
+                     pos_tests = df_sero$Pos_tests, samples = df_sero$Samples)
+# Sero_prev <- c(val = 2.1, n = 2614, ci95l = 1.1, ci95h = 3.1)
 # Sero_prev <- c(val = 3.2, n = 2614, ci95l = 1.7, ci95h = 4.8)
-PCR_prev <- c(val = 7.6, n = 2848, ci95l = 4.7, ci95h = 10.6)
-Tot_cov_prev <- c(val = 10.6, n = 1886, ci95l = 7.3, ci95h = 13.9)
-Lancet_Data <- list(PCR_prev=PCR_prev, Sero_prev=Sero_prev, Tot_cov_prev=Tot_cov_prev)
+# PCR_prev <- c(val = 7.6, n = 2848, ci95l = 4.7, ci95h = 10.6)
+# Tot_cov_prev <- c(val = 10.6, n = 1886, ci95l = 7.3, ci95h = 13.9)
+Lancet_Data <- list(pcr_df=pcr_df, sero_df=sero_df)
 saveRDS(Lancet_Data, "analysis/data/Code-generated-data/00_10_Lancet_Data.rds")
 ##############################################
 
@@ -879,7 +1019,9 @@ df_Date_no_age <- df %>% group_by(date) %>%
   summarise(date = head(date,1),
             Samples = sum(Samples),
             PosTests = sum(PosTests),
-            PosTests_Strict = sum(PosTests_Strict)) %>% filter(date >="2020-06-15")
+            PosTests_Strict = sum(PosTests_Strict)) %>% filter(date >="2020-06-15") %>%
+  add_row(date = as.Date("2020-10-03"), Samples = 0, PosTests = 0, PosTests_Strict = 0) %>%
+  add_row(date = as.Date("2020-10-04"), Samples = 0, PosTests = 0, PosTests_Strict = 0)
 
 saveRDS(df_Date_no_age,"analysis/data/Code-generated-data/00_12_Post_Mortem_Complete_Date.rds")
 
@@ -923,32 +1065,31 @@ dev.off()
 ##############################################
 ### 13. Combined Mortuary, post-mortem data 2
 ##############################################
+df <- readRDS("analysis/data/Code-generated-data/00_12_Post_Mortem_Complete_Age.rds")
+Bur_regs_age_week <- readRDS("analysis/data/Code-generated-data/00_07_Burial_registrations_by_age_week.rds")
 
-Combined_Dates2 <- merge(df, UTH_deaths_by_age, all = T) %>% tidyr::replace_na(list(Mort_deaths = 0, Samples = 0, PosTests = 0, PosTests_Strict = 0)) %>%
-  tidyr::complete(Age_gr, date, fill = list(Mort_deaths = 0, Samples = 0, PosTests = 0, PosTests_Strict = 0))
-
-Combined_Weeks2 <- Combined_Dates2 %>% filter(date>="2020-06-15") %>% mutate(Week_gr = cut.Date(x = date, breaks = "weeks", labels = F)) %>%
-  group_by(Week_gr, Age_gr) %>% summarise(date = head(date,1),
-                                             Mort_deaths = sum(Mort_deaths),
-                                             Samples = sum(Samples),
-                                             PosTests = sum(PosTests),
-                                             PosTests_Strict = sum(PosTests_Strict)) %>%
-  ungroup %>% tidyr::complete(Age_gr, tidyr::nesting(Week_gr,date), fill = list(Mort_deaths = 0, sampled_deaths = 0, CT_45_Either = 0, CT_40_Either = 0))
+Combined_Weeks2 <- df %>% filter(date>="2020-06-15") %>% mutate(Week_gr = cut.Date(x = date, breaks = "weeks", labels = F),
+                                                                date = lubridate::floor_date(date, unit = "week", week_start = 1)) %>% ungroup() %>%
+  group_by(Week_gr, Age_gr) %>% summarise(date = date[1],
+                                          Samples = sum(Samples),
+                                          PosTests = sum(PosTests),
+                                          PosTests_Strict = sum(PosTests_Strict)) %>%
+  merge(Bur_regs_age_week, all = T)
 
 # table(Combined_Weeks[,c("Age_gr","Week_gr")])
 
-# Combined_Weeks2[Combined_Weeks2$Week_gr==4, "Mort_deaths"] <-
-#   Combined_Weeks2[Combined_Weeks2$Week_gr %in% c(3,5), c("Age_gr","Week_gr","Mort_deaths")] %>% group_by(Age_gr) %>%
-#   summarise(Mort_deaths = round(mean(Mort_deaths))) %>% select(Mort_deaths)
+# Combined_Weeks2[Combined_Weeks2$Week_gr==4, "Burial_Regs"] <-
+#   Combined_Weeks2[Combined_Weeks2$Week_gr %in% c(3,5), c("Age_gr","Week_gr","Burial_Regs")] %>% group_by(Age_gr) %>%
+#   summarise(Burial_Regs = round(mean(Burial_Regs))) %>% select(Burial_Regs)
 # sum(Combined_Weeks2_no_age$Samples)
 # sum(Combined_Weeks2_no_age$PosTests)
 # sum(Combined_Weeks2_no_age$PosTests_Strict)
-# sum(Combined_Weeks2_no_age$Mort_deaths)
+# sum(Combined_Weeks2_no_age$Burial_Regs)
 
-saveRDS(object = Combined_Weeks2, file = "analysis/data/Code-generated-data/00_13_Combined_mortuary_postmortem_data_complete.rds")
+saveRDS(object = Combined_Weeks2, file = "analysis/data/Code-generated-data/00_13_Combined_bur_regs_postmortem_data_complete.rds")
 
 Combined_Weeks2_no_age <- Combined_Weeks2 %>% ungroup() %>% group_by(Week_gr) %>%
-  summarise(Mort_deaths = sum(Mort_deaths),
+  summarise(Burial_Regs = sum(Burial_Regs),
             Samples = sum(Samples),
             PosTests = sum(PosTests),
             PosTests_Strict = sum(PosTests_Strict))
@@ -964,7 +1105,99 @@ Mulenga_Combined_Prev_Age <- data.frame(Combined_Prev = c(4, 8.1, 10.3, 14.4, 5.
            row.names = c("0-9","10-19","20-29","30-39","40-49","50-59","60-69","70+"))
 saveRDS(Mulenga_Combined_Prev_Age, "analysis/data/Code-generated-data/14_Mulenga_Combined_Prevalence_by_Age.rds")
 
+####
+### 15 PCR detection options
+## option 1: Hellewell et al.
+beta_1 <- 1.51
+beta_2 <- 2.19
+beta_3 <- -1.1
+C <- 3.18
 
+Time_from_infection <- seq(0,34,1)
+x <- Time_from_infection - C
+
+plot(x = Time_from_infection, LaplacesDemon::invlogit(beta_1 + beta_2*x + ifelse(x>0, beta_2*beta_3*x, 0)), type = "l", ylim = c(0,1), xlab = "Days since infection", ylab = "pcr detection")
+points(x = Time_from_infection, LaplacesDemon::invlogit(beta_1 + beta_2*x + ifelse(x>0, beta_2*(beta_3-0.05)*x, 0)), type = "l", ylim = c(0,1), lty =2)
+points(x = Time_from_infection, LaplacesDemon::invlogit(beta_1 + beta_2*x + ifelse(x>0, beta_2*(beta_3+0.03)*x, 0)), type = "l", ylim = c(0,1), lty =2)
+pcr_det_hellewell <- LaplacesDemon::invlogit(beta_1 + beta_2*x + ifelse(x>0, beta_2*beta_3*x, 0))
+pcr_det_hellewell_quick <- LaplacesDemon::invlogit(beta_1 + beta_2*x + ifelse(x>0, beta_2*(beta_3-0.05)*x, 0))
+pcr_det_hellewell_slow <- LaplacesDemon::invlogit(beta_1 + beta_2*x + ifelse(x>0, beta_2*(beta_3+0.03)*x, 0))
+
+saveRDS(pcr_det_hellewell, file = "analysis/data/Code-generated-data/00_15_pcr_det_hellewell.rds")
+saveRDS(pcr_det_hellewell_quick, file = "analysis/data/Code-generated-data/00_15_pcr_det_hellewell_quick.rds")
+saveRDS(pcr_det_hellewell_slow, file = "analysis/data/Code-generated-data/00_15_pcr_det_hellewell_slow.rds")
+
+# plot(x = Time_from_infection, LaplacesDemon::invlogit(beta_1 + beta_2*x + ifelse(x>0, beta_2*beta_3*x, 0)), type = "l", ylim = c(0,1), xlab = "Days since infection", ylab = "pcr detection")
+# points(x = Time_from_infection, LaplacesDemon::invlogit(beta_1+0.5 + beta_2*x + ifelse(x>0, beta_2*(beta_3)*x, 0)), type = "l", ylim = c(0,1), lty =2)
+# points(x = Time_from_infection, LaplacesDemon::invlogit(beta_1-0.5 + beta_2*x + ifelse(x>0, beta_2*(beta_3)*x, 0)), type = "l", ylim = c(0,1), lty =2)
+
+
+# Option 2: Hay et al.
+pcr_sens = 1
+# pcr_sens = 0.8
+pcr_det <- c(9.206156e-13, 9.206156e-13, 3.678794e-01, 9.645600e-01,
+             9.575796e-01, 9.492607e-01, 9.393628e-01, 9.276090e-01,
+             9.136834e-01, 8.972309e-01, 8.778578e-01, 8.551374e-01,
+             8.286197e-01, 7.978491e-01, 7.623916e-01, 7.218741e-01,
+             6.760375e-01, 6.248060e-01, 5.683688e-01, 5.072699e-01,
+             4.525317e-01, 4.036538e-01, 3.600134e-01, 3.210533e-01,
+             2.862752e-01, 2.552337e-01, 2.275302e-01, 2.028085e-01,
+             1.807502e-01, 1.610705e-01, 1.435151e-01, 1.278563e-01,
+             1.138910e-01, 1.014375e-01, 9.033344e-02)
+pcr_det_100 <- (pcr_det/max(pcr_det))*1
+pcr_det_95 <- (pcr_det/max(pcr_det))*0.95
+pcr_det_90 <- (pcr_det/max(pcr_det))*0.9
+plot(Time_from_infection,pcr_det, type = "l")
+points(Time_from_infection,pcr_det_mort, type = "l")
+
+saveRDS(pcr_det_100, file = "analysis/data/Code-generated-data/00_15_pcr_det_hall_100.rds")
+saveRDS(pcr_det_95, file = "analysis/data/Code-generated-data/00_15_pcr_det_hall_95.rds")
+saveRDS(pcr_det_90, file = "analysis/data/Code-generated-data/00_15_pcr_det_hall_90.rds")
+
+
+
+############## 16 MCMC results formatting
+mcmc <- readRDS("../Bonus Files/2022-05-24_Baseline_Mortality_mcmc_Gamma_Prior_inc_Feb_2021.rds")
+mcmc_samples <-mcmc$output %>% filter(phase =="sampling")
+
+# Of the 12500 samples, I need to get 500.
+# set.seed(6)
+sample_index <- sample(x = 1:nrow(mcmc_samples), size = 500, replace = F)
+mcmc_samples <- mcmc_samples[sample_index,]
+# mcmc_samples[sample_index,]
+
+
+## AG1 deaths in mortuary: Mort_deaths_mcmc: 2020_AG1
+# This gets included in ncdeaths below.
+AG1_2020_mcmc <- mcmc_samples[, c(paste0("U_5_Rate_Week_",129:144))]
+
+## AG1 Pre 2020 background death rate: Bg_dr_mcmc
+AG1_pre2020_mcmc <- rowMeans(mcmc_samples[, c(paste0("U_5_Rate_Week_",1:104))])
+
+pre2020_mcmc <- lapply(1:nrow(mcmc_samples), function(x){
+  data.frame(Age_gr = 1:17,
+             Bg_dr = unlist(c(AG1_pre2020_mcmc[x], AG1_pre2020_mcmc[x] * mcmc_samples[x,paste0("RR",2:17)])))
+})
+
+## Non-covid deaths in the mortuary: 2020_AG1 * RR
+Mort_ncd_mcmc <- lapply(1:nrow(AG1_2020_mcmc), function(x){
+  mcmc_samples <- cbind(as.numeric(AG1_2020_mcmc[x,]),
+                        as.numeric(AG1_2020_mcmc[x,]) %*% t(as.numeric(mcmc_samples[x,paste0("RR",2:17)])))
+  rownames(mcmc_samples) <- 1:16
+  colnames(mcmc_samples) <- 1:17
+  mcmc_samples <- mcmc_samples %>% reshape2::melt(value.name = "Mort_ncd_mcmc", varnames = c("Week_gr", "Age_gr"))
+
+  return(mcmc_samples = mcmc_samples)
+})
+
+
+dfj_mcmc_data <- lapply(1:length(Mort_ncd_mcmc) , function(x){
+  merge(Mort_ncd_mcmc[x], pre2020_mcmc[[x]]) %>%
+    mutate(ag1std = Mort_ncd_mcmc/Bg_dr)})
+
+# saveRDS(dfj_mcmc_data, file = "analysis/data/Code-generated-data/39_drj_mcmc_data.rds")
+# saveRDS(dfj_mcmc_data, file = "analysis/data/Code-generated-data/39_drj_mcmc_data_Checked.rds")
+saveRDS(dfj_mcmc_data, file = "analysis/data/Code-generated-data/00_16_03_drj_mcmc_data_new_pop_str.rds")
 
 
 ##############################################

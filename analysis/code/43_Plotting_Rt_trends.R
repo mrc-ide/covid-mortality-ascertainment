@@ -1,14 +1,36 @@
 # Plotting Rt trends.# Plot Rt
-library(tidyverse)
-ModRes <- readRDS("../Bonus Files/2022-04-27_Model_Fit_10_pois_bin_bin_int_over.rds")$X41
+# require(tidyverse)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+devtools::load_all()
+
+# ModRes <- readRDS("../Bonus Files/2022-04-27_Model_Fit_10_pois_bin_bin_int_over.rds")$X41
+ModRes <- readRDS("../Bonus Files/2022-06-02_L10_Fixed_Int_Fixed_Prior.rds")$X41
 ModRes$output
 ModRes$parameters
 ModRes$replicate_parameters$R0
 
 ModRes$replicate_parameters[,c("R0", paste0("Rt_rw_",1:10))]
 
-squire:::evaluate_Rt_pmcmc()
+ModRes$replicate_parameters[,c("R0", paste0("Rt_rw_",1:10))][1,]
+# squire:::evaluate_Rt_pmcmc()
 
+
+Im_Rats <- get_immunity_ratios(ModRes)
+Plot_Res <- rt_plot_immunity(ModRes)
+
+tiff(filename = "analysis/figures/43_Rt_Reff_Trends.tiff", width = 5, height = 5, units = "in", res = 300)
+Plot_Res$plot + coord_cartesian(xlim = as.Date(c("2020-05-03","2020-10-02")))
+dev.off()
+
+pdf(file = "analysis/figures/43_Rt_Reff_Trends.pdf", width = 5, height = 5)
+Plot_Res$plot + coord_cartesian(xlim = as.Date(c("2020-06-15","2020-10-02")))
+dev.off()
+
+# ModRes$replicate_parameters$R0
+
+  # squire::get_population("Zambia")$iso3c[1]
 
 ## These need to be converted into actual R0 values.
 
@@ -25,7 +47,7 @@ squire:::evaluate_Rt_pmcmc()
 #        mean(Mod_Res5$X28$replicate_parameters$R0+Mod_Res5$X28$replicate_parameters$Rt_rw_9),
 #        mean(Mod_Res5$X28$replicate_parameters$R0+Mod_Res5$X28$replicate_parameters$Rt_rw_10)))
 
-squire:::evaluate_Rt_pmcmc()
+# squire:::evaluate_Rt_pmcmc()
 
 Rt_vals_Reps <- lapply(seq_along(ModRes$replicate_parameters$R0), function(y) {
 
@@ -126,3 +148,5 @@ plot(data.frame(Date = seq.Date(from = as.Date("2020-06-15"), to = as.Date("2020
 Rt_vals_Reps[[1]]
 
 plot(Rt_vals_Reps[[2]], type = "l")
+
+

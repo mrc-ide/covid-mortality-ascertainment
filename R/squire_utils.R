@@ -24,24 +24,22 @@ fit_spline_rt <- function(data,
                           hosp_beds = 10000000000,
                           icu_beds = 10000000000,
                           sero_sens = 0.9,
-                          sero_df_start = NULL,
-                          sero_df_end = NULL,
-                          sero_df_pos = NULL,
-                          sero_df_samples = NULL,
                           pcr_sens = 0.95,
-                          pcr_df_start = NULL,
-                          pcr_df_end = NULL,
-                          pcr_df_pos = NULL,
-                          pcr_df_samples = NULL,
                           comb_df = NULL,
+                          pcr_df = NULL,
+                          pcr_det = NULL,
+                          pcr_det_PM = NULL,
+                          sero_df = NULL,
                           IFR_slope_bounds = NULL,
                           IFR_multiplier_bounds = NULL,
                           combined_data = NULL,
                           combined_data_week = NULL,
+                          frac_mort = 1,
                           log_likelihood = NULL,
                           lld =NULL,
                           k_death = 2,
-                          HypGeoWeights = NULL,
+                          Prior_Rt_rw_unif_lim = NULL,
+
                           ...) {
 # browser()
   ## -----------------------------------------------------------------------------
@@ -117,7 +115,7 @@ fit_spline_rt <- function(data,
   # These are the the initial conditions now loaded from our previous run.
   R0_start <- min(max(R0_start, R0_min), R0_max)
   date_start <- min(max(as.Date(start_date), as.Date(first_start_date)), as.Date(last_start_date))
-
+# browser()
   # again these all do nothing
   Meff_start <- min(max(0, Meff_min), Meff_max)
   Meff_pl_start <- min(max(0.5, Meff_pl_min), Meff_pl_max)
@@ -160,21 +158,43 @@ fit_spline_rt <- function(data,
 
   # from Hay et al 2021 Science (actually from preprint)
   # pcr_sens = 0.95
-  pcr_det <- c(9.206156e-13, 9.206156e-13, 3.678794e-01, 9.645600e-01,
-               9.575796e-01, 9.492607e-01, 9.393628e-01, 9.276090e-01,
-               9.136834e-01, 8.972309e-01, 8.778578e-01, 8.551374e-01,
-               8.286197e-01, 7.978491e-01, 7.623916e-01, 7.218741e-01,
-               6.760375e-01, 6.248060e-01, 5.683688e-01, 5.072699e-01,
-               4.525317e-01, 4.036538e-01, 3.600134e-01, 3.210533e-01,
-               2.862752e-01, 2.552337e-01, 2.275302e-01, 2.028085e-01,
-               1.807502e-01, 1.610705e-01, 1.435151e-01, 1.278563e-01,
-               1.138910e-01, 1.014375e-01, 9.033344e-02)
-  pcr_det <- (pcr_det/max(pcr_det))*pcr_sens
+  if(any(c(is.null(pcr_det),is.null(pcr_det_PM)))){
+    pcr_det_default <- c(9.206156e-13, 9.206156e-13, 3.678794e-01, 9.645600e-01,
+                         9.575796e-01, 9.492607e-01, 9.393628e-01, 9.276090e-01,
+                         9.136834e-01, 8.972309e-01, 8.778578e-01, 8.551374e-01,
+                         8.286197e-01, 7.978491e-01, 7.623916e-01, 7.218741e-01,
+                         6.760375e-01, 6.248060e-01, 5.683688e-01, 5.072699e-01,
+                         4.525317e-01, 4.036538e-01, 3.600134e-01, 3.210533e-01,
+                         2.862752e-01, 2.552337e-01, 2.275302e-01, 2.028085e-01,
+                         1.807502e-01, 1.610705e-01, 1.435151e-01, 1.278563e-01,
+                         1.138910e-01, 1.014375e-01, 9.033344e-02)
+    pcr_det_default <- (pcr_det_default/max(pcr_det_default))*pcr_sens
+    if(is.null(pcr_det)){pcr_det <- pcr_det_default}
+    if(is.null(pcr_det_PM)){pcr_det_PM <- pcr_det_default}
+  }
 
-
-  pcr_det_sero_len <- c(pcr_det, rep(0, length(sero_det)-length(pcr_det)))
-  comb_det <-   1-((1-c(0, 0, 0, 0, head(sero_det, -4))) * (1-pcr_det_sero_len))
-
+  # browser()
+# p1 <- ggplot2::ggplot(data = data.frame("Days_since_inf" = 1:length(pcr_det),
+#                                         pcr_det), aes(y = pcr_det, x = Days_since_inf)) + geom_line() +
+#   xlab("Days since infection") + ylab("Detection probability") +
+#   ggtitle("PCR")+
+#   theme_minimal()
+#
+# p2 <- ggplot2::ggplot(data = data.frame("Days_since_symptom_onset" = 1:length(sero_det),
+#                                   sero_det), aes(y = sero_det, x = Days_since_symptom_onset)) + geom_line() +
+#   xlab("Days since symptom onset") + ylab("Detection probability") +
+#   ggtitle("Seroprevalence")+
+#   theme_minimal()
+#
+# p3 <- ggplot2::ggplot(data = data.frame("Days_since_inf" = 1:length(comb_det),
+#                                   comb_det), aes(y = comb_det, x = Days_since_inf)) + geom_line() +
+#   xlab("Days since infection") + ylab("Detection probability") +
+#   ggtitle("Combined measure")+
+#   theme_minimal()
+#
+# pdf("analysis/figures/squire_utils_detection_probabilities.pdf", height = 2.5, width = 8)
+# cowplot::plot_grid(p1,p2,p3, nrow = 1)
+# dev.off()
 # browser()
 
   # PMCMC Parameters
@@ -199,7 +219,8 @@ fit_spline_rt <- function(data,
   pars_discrete = list('start_date' = TRUE, 'R0' = FALSE, 'Meff' = FALSE,
                        'Meff_pl' = FALSE, "Rt_shift" = FALSE, "Rt_shift_scale" = FALSE)
   pars_obs = list(phi_cases = 1, k_cases = 2, phi_death = 1, k_death = k_death, exp_noise = 1e6,
-                  sero_det = sero_det, pcr_det = pcr_det, comb_det = comb_det, combined_data = combined_data, combined_data_week = combined_data_week, lld = lld, HypGeoWeights = HypGeoWeights)
+                  sero_det = sero_det, pcr_det = pcr_det, pcr_det_PM = pcr_det_PM, combined_data = combined_data, combined_data_week = combined_data_week, lld = lld,
+                  frac_mort = frac_mort)
 
   # add in the spline list
   pars_init <- append(pars_init, pars_init_rw)
@@ -215,26 +236,23 @@ fit_spline_rt <- function(data,
     pars_discrete <- append(pars_discrete, c("rf"=FALSE))
   }
 
-  if(!is.null(unlist(list(sero_df_start,sero_df_end,sero_df_pos,sero_df_samples)))){
-    ## Check all values are correct
-    if(any(lapply(list(sero_df_start,sero_df_end,sero_df_pos,sero_df_samples), length) != length(sero_df_start))){
-      stop("sero_df inputs must have the same length")}
-    sero_df = data.frame(date_start = sero_df_start, date_end = sero_df_end, sero_pos = sero_df_pos, samples = sero_df_samples)
-    pars_obs <- append(pars_obs, c("sero_df" = list(sero_df)))
+
+  if(!is.null(comb_df)){
+    pars_obs <- append(pars_obs, c("comb_df" = list(comb_df)))
+
+    pcr_det_sero_len <- c(pcr_det, rep(0, length(sero_det)-length(pcr_det)))
+    comb_det <-   1-((1-c(0, 0, 0, 0, head(sero_det, -4))) * (1-pcr_det_sero_len))
+    pars_obs <- append(pars_obs, c("comb_det" = list(comb_det)))
+
   }
 
-  if(!is.null(unlist(list(pcr_df_start,pcr_df_end,pcr_df_pos,pcr_df_samples)))){
-    if(any(lapply(list(pcr_df_start,pcr_df_end,pcr_df_pos,pcr_df_samples), length) != length(pcr_df_start))){
-      stop("pcr_df inputs must have the same length")}
-    pcr_df = data.frame(date_start = pcr_df_start, date_end = pcr_df_end, pcr_pos = pcr_df_pos, samples = pcr_df_samples)
+
+  if(!is.null(pcr_df)){
     pars_obs <- append(pars_obs, c("pcr_df" = list(pcr_df)))
   }
 
-  if(!is.null(comb_df)){
-    # if(any(lapply(as.list(comb_df), length) != length(comb_df_start))){
-      # stop("pcr_df inputs must have the same length")}
-    # comb_df = data.frame(date_start = comb_df_start, date_end = comb_df_end, comb_pos = comb_df_pos, samples = comb_df_samples)
-    pars_obs <- append(pars_obs, c("comb_df" = list(comb_df)))
+  if(!is.null(sero_df)){
+    pars_obs <- append(pars_obs, c("sero_df" = list(sero_df)))
   }
 
 ######################################################################
@@ -270,7 +288,8 @@ fit_spline_rt <- function(data,
     if(any(grepl("Rt_rw", names(pars)))) {
       Rt_rws <- pars[grepl("Rt_rw", names(pars))]
       for (i in seq_along(Rt_rws)) {
-        ret <- ret + dnorm(x = Rt_rws[[i]], mean = 0, sd = 0.2, log = TRUE)
+        # ret <- ret + dnorm(x = Rt_rws[[i]], mean = 0, sd = 0.2, log = TRUE)
+        ret <- ret + dunif(x = Rt_rws[[i]], min = -Prior_Rt_rw_unif_lim, max = Prior_Rt_rw_unif_lim, log = TRUE) # default = 1
       }
     }
 
@@ -387,9 +406,9 @@ seroprev_df <- function(res){
   date_0 <- max(res$pmcmc_results$inputs$data$date)
   inf <- squire::format_output(res, c("S"), date_0 = max(res$pmcmc_results$inputs$data$date)) %>%
     na.omit() %>%
-    mutate(S = as.integer(.data$y)) %>%
+    mutate(S = .data$y) %>%
     group_by(replicate) %>%
-    mutate(infections = c(0, diff(max(.data$S)-.data$S))) %>%
+    mutate(infections = c(0, as.integer(diff(max(.data$S)-.data$S)))) %>%
     select(replicate, t, date, .data$S, .data$infections)
 
   # correctly format
@@ -427,8 +446,8 @@ seroprev_df <- function(res){
 Summ_sero_pcr_data <- function(x){
   if(is.null(x)){return(NULL)}
   x %>% group_by(date) %>%
-    summarise(mean_pcr = mean(pcr_perc)*100, min_pcr = min(pcr_perc)*100, max_pcr = max(pcr_perc)*100,
-              mean_sero = mean(sero_perc)*100, min_sero = min(sero_perc)*100, max_sero = max(sero_perc)*100,
+    summarise(mean_pcr = mean(pcr_perc)*100, min_pcr = min(pcr_perc)*100, max_pcr = max(pcr_perc)*100, ci_low_pcr = 100*bayestestR::ci(pcr_perc)$CI_low, ci_high_pcr = 100*bayestestR::ci(pcr_perc)$CI_high,
+              mean_sero = mean(sero_perc)*100, min_sero = min(sero_perc)*100, max_sero = max(sero_perc)*100, ci_low_sero = 100*bayestestR::ci(sero_perc)$CI_low, ci_high_sero = 100*bayestestR::ci(sero_perc)$CI_high,
               mean_combined = mean(combined_perc)*100, min_combined = min(combined_perc)*100, max_combined = max(combined_perc)*100)}
 
 # pcr_at_date <- function(date, infections, det, dates, N) {

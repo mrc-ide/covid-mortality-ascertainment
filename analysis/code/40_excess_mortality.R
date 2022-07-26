@@ -1,20 +1,26 @@
 ## Excess deaths by age and time:
 rm(list = ls())
-# library(dplyr)
-# library(ggplot2)
-library(tidyverse)
+library(dplyr)
+library(ggplot2)
+# library(tidyverse)
 
 # 1. I need the baseline estimates
-mcmc <- readRDS("../Bonus Files/2022-04-05_mcmc_baseline.rds")
+# mcmc <- readRDS("../Bonus Files/2022-04-05_mcmc_baseline.rds")
+mcmc <- readRDS("../Bonus Files/2022-05-24_Baseline_Mortality_mcmc_Gamma_Prior_inc_Feb_2021.rds")
 # mcmc <- readRDS("../Bonus Files/2022-04-22_mcmc_LOOCV_1.rds")
 mcmc_samples <-mcmc$output %>% filter(phase =="sampling")
 
+plot_par(mcmc, show = "RR2", phase = "sampling")
+plot_par(mcmc, show = "U_5_Rate_Week14", phase = "sampling")
+
 ## AG1 deaths in mortuary: Mort_deaths_mcmc: 2020_AG1
 # This gets included in ncdeaths below.
-AG1_2020_mcmc <- mcmc_samples[, c(paste0("U_5_Rate_Week",129:144))]
+# AG1_2020_mcmc <- mcmc_samples[, c(paste0("U_5_Rate_Week",129:144))]
+AG1_2020_mcmc <- mcmc_samples[, c(paste0("U_5_Rate_Week_",c(105:181)))]
 
 ## AG1 Pre 2020 background death rate: Bg_dr_mcmc
-Mort_deaths <- readRDS("analysis/data/Code-generated-data/00_07_Mortuary_data_age_weeks.rds")
+# Mort_deaths <- readRDS("analysis/data/Code-generated-data/00_07_Mortuary_data_age_weeks.rds")
+Mort_deaths <- readRDS("analysis/data/Code-generated-data/00_07_Mortuary_data_age_weeks_2020_plus.rds")
 Ag1std <- Mort_deaths %>% filter(Age_gr ==1) %>% select(-Age_gr) %>%
   rename("Ag1std" = deaths)
 
@@ -33,12 +39,13 @@ Ag1std <- Mort_deaths %>% filter(Age_gr ==1) %>% select(-Age_gr) %>%
 Mort_excess_deaths <- lapply(1:nrow(AG1_2020_mcmc), function(x){
   mcmc_samples <- cbind(as.numeric(AG1_2020_mcmc[x,]),
                         as.numeric(AG1_2020_mcmc[x,]) %*% t(as.numeric(mcmc_samples[x,paste0("RR",2:17)])))
-  rownames(mcmc_samples) <- 1:16
+  # rownames(mcmc_samples) <- 1:16
+  rownames(mcmc_samples) <- c(105:181)-104
   colnames(mcmc_samples) <- 1:17
   # browser()
   mcmc_samples <- mcmc_samples %>% reshape2::melt(value.name = "Mort_ncd_mcmc", varnames = c("Week_gr", "Age_gr"))
     # dplyr::pull(Mort_ncd_mcmc)
-
+  # browser()
   excess_deaths <- merge(mcmc_samples,Mort_deaths, all = T) %>%
     mutate(excess = deaths - Mort_ncd_mcmc)
   return(excess_deaths)
@@ -49,18 +56,19 @@ Mort_excess_deaths <- lapply(1:nrow(AG1_2020_mcmc), function(x){
 
 ## Divide by pop size for Lusaka
 ## Multiply by 1000 to get per-capita deaths per 1000
-Pop_str <- readRDS("analysis/data/Code-generated-data/00_02_Lusaka_Dist_Pop_Struc_2020_opendataforafrica.rds")
+Pop_str <- readRDS("analysis/data/Code-generated-data/00_02_Lusaka_Dist_Pop_Str_2020_imp_ests.rds")
 Pop_str_df <- data.frame(Age_gr = 1:17, Pop_str = Pop_str)
 
 ## mean(under5_2018_to_2019)/under_5_rate/0.8
 
 # Mort_ncd_mcmc need to be scaled by under 5 rate.
 # So we have under 5 rate from weeks
-AG1_pre2020_mcmc <- mcmc_samples[, c(paste0("U_5_Rate_Week",1:105))]
+AG1_pre2020_mcmc <- mcmc_samples[, c(paste0("U_5_Rate_Week_",1:104))]
 
 U5_Baseline_2018_2019 <- rowMeans(AG1_pre2020_mcmc)
 WeeklyStandardise <- apply(AG1_2020_mcmc, 2, function(x){x/U5_Baseline_2018_2019})
-colnames(WeeklyStandardise) <- 1:16
+# colnames(WeeklyStandardise) <- 1:16
+colnames(WeeklyStandardise) <- c(105:181)-104
 WeeklyStandardise <- WeeklyStandardise %>%
   reshape2::melt(value.name = "Standard", varnames = c("list_names","Week_gr"))
 
@@ -78,6 +86,10 @@ WeeklyStandardise %>% group_by(Week_gr) %>%
   geom_ribbon(aes(ymin = CI_low, ymax = CI_high), alpha = 0.2) +
   xlab("Week of study") + ylab("Standardisation coefficient")
 
+WeeklyStandardise %>%group_by(Week_gr) %>%
+  summarise(min(Standard),
+            median(Standard),
+            max(Standard))
 ##################################################################
 
 hist(U5_Baseline_2018_2019)
@@ -114,22 +126,56 @@ hist(WeeklyStandardise %>% select(-list_names) %>% filter(Week_gr ==5))
 # Mort_excess_deaths %>% filter(Age_gr == 1, Week_gr == 6)
 
 Plot_df_Total <- Mort_excess_deaths %>% #filter(Week_gr ==5, Age_gr == 11) %>%
-  merge(WeeklyStandardise) %>% mutate(excess_sc = excess/Standard,
-                                      excess_sc_Lus = excess_sc/0.8)%>%
+  # complete()
+  merge(WeeklyStandardise) %>% mutate(excess_sc = excess/Standard) %>%#
+                                      #excess_sc_Lus = excess_sc/0.8)%>%
   group_by(Week_gr, Age_gr) %>%
   # across()
   summarise(across(starts_with("excess"), list(Median = ~median(.x),
                                                CI_low = ~ bayestestR::ci(.x)$CI_low,
                                                CI_high = ~ bayestestR::ci(.x)$CI_high)))
 
-saveRDS(Plot_df_Total, file = "analysis/data/Code-generated-data/40_Excess_mortality_total_deaths_by_age_week.rds")
-  # merge(Pop_str_df) %>%
+# saveRDS(Plot_df_Total, file = "analysis/data/Code-generated-data/40_Excess_mortality_total_deaths_by_age_week.rds")
+# saveRDS(Plot_df_Total, file = "analysis/data/Code-generated-data/40_Excess_mortality_total_deaths_by_age_week_Checked.rds")
+# saveRDS(Plot_df_Total, file = "analysis/data/Code-generated-data/40_Excess_mortality_total_deaths_by_age_week_checked_extended_with_Feb.rds")
+Plot_df_Total <- readRDS(file = "analysis/data/Code-generated-data/40_Excess_mortality_total_deaths_by_age_week_checked_extended_with_Feb.rds")
+# merge(Pop_str_df) %>%
   # mutate(across(starts_with("excess"), ~.x*1000/Pop_str))
 
+Excess_Deaths <- Plot_df_Total %>% merge(Dates_for_groups) %>%
+  ungroup() %>% group_by(date_st) %>% summarise(
+    Excess_Mort = sum(excess_Median),
+    Excess_Mort_Scaled = sum(excess_sc_Median)) %>%
+  reshape2::melt(id = "date_st") %>%
+  ggplot(aes(x = date_st, y = value, group = variable, fill = variable)) +
+  geom_bar(width = 4, stat = "identity", position = "dodge") +
+  scale_fill_manual(name = NULL,
+                    values = c("black","firebrick3"),
+                    labels=c("Initial estimates", "Standardised")) +
+  theme_minimal() +
+  xlab("Date") +ylab("Excess Deaths")
 
-Plot_df <- Mort_excess_deaths %>% #filter(Week_gr ==5, Age_gr == 11) %>%
-  merge(WeeklyStandardise) %>% mutate(excess_sc = excess/Standard,
-                                      excess_sc_Lus = excess_sc/0.8)%>%
+tiff(filename = "analysis/figures/00_40_Total_Excess_Deaths_Weekly.tiff", res = 300, width = 8, height = 5, units = "in")
+Excess_Deaths
+dev.off()
+
+Plot_df_Total %>% merge(Dates_for_groups) %>%
+  filter(date_st >="2020-06-15",
+         date_st <"2020-10-01") %>% ungroup() %>%
+  summarise(sum(excess_Median),
+            sum(excess_sc_Median))
+
+Plot_df_Total %>% merge(Dates_for_groups) %>%
+  filter(date_st >="2020-12-15",
+         date_st <"2021-03-01") %>% ungroup() %>%
+  summarise(sum(excess_Median),
+            sum(excess_sc_Median))
+
+
+Plot_df <- Mort_excess_deaths %>%
+  # ungroup()
+  # complete() %>%#filter(Week_gr ==5, Age_gr == 11) %>%
+  merge(WeeklyStandardise) %>% mutate(excess_sc = excess/Standard)%>%
   group_by(Week_gr, Age_gr) %>%
   # across()
   summarise(across(starts_with("excess"), list(Median = ~median(.x),
@@ -139,6 +185,8 @@ Plot_df <- Mort_excess_deaths %>% #filter(Week_gr ==5, Age_gr == 11) %>%
   mutate(across(starts_with("excess"), ~.x*1000/Pop_str))
          # CI_low_pc = 1000*CI_low/Pop_str,
          # CI_high_pc = 1000*CI_high/Pop_str)
+
+saveRDS(Plot_df, file = "analysis/data/Code-generated-data/40_Excess_mortality_total_deaths_by_age_week_checked_extended_per1000_with_Feb.rds")
 
 # dose.labs <- c("D0.5", "D1", "D2")
 # names(dose.labs) <- c("0.5", "1", "2")
@@ -166,38 +214,71 @@ library(ggpubr)
 #   xlab("Week of study") + ylab("Excess mortality per capita") +
 #   geom_hline(yintercept = 0, linetype = "dashed") +
 #   theme_pubr()
-Dates_for_groups <- readRDS(file = "analysis/data/Code-generated-data/00_07_Mortuary_data.rds") %>%
-  filter(date < as.Date("2020-10-05")) %>%
-  mutate(date = lubridate::floor_date(date, "week", 1)) %>% group_by(date) %>% summarise(date = date[1]) %>%
-  mutate(Week_gr = 1:16)
+# Dates_for_groups <- readRDS(file = "analysis/data/Code-generated-data/00_07_Mortuary_data.rds") %>%
+#   filter(date < as.Date("2020-10-05")) %>%
+#   mutate(date = lubridate::floor_date(date, "week", 1)) %>% group_by(date) %>% summarise(date = date[1]) %>%
+#   mutate(Week_gr = 1:16)
 
-p1 <- ggplot(data = Plot_df %>% filter(Age_gr !=1) %>% merge(Dates_for_groups), aes(x = date))  +
+Dates_for_groups <- readRDS(file = "analysis/data/Code-generated-data/00_07_Mortuary_data_age_weeks_2020_plus.rds") %>%
+  select(Week_gr, date_st) %>%
+  unique()
+
+
+Plot_df <- readRDS(file = "analysis/data/Code-generated-data/40_Excess_mortality_total_deaths_by_age_week_checked_extended_per1000_with_Feb.rds")
+Check_the_plot_data <- Plot_df %>% filter(Age_gr !=1) %>%
+  merge(Dates_for_groups)
+# Dates_to_add <- data.frame(Week_gr = c(58:61), date_st = seq.Date(from = as.Date("2021-02-02"), by = "week", length.out = 4))
+# Check_the_plot_data <- Check_the_plot_data #%>%
+  # rbind(data.frame(expand.grid(Week_gr = c(58:61),Age_gr = 2:17) %>%# merge(Dates_to_add),
+                   # excess_Median = NA, excess_CI_low = NA, excess_CI_high = NA, excess_sc_Median = NA,
+                   # excess_sc_CI_low = NA, excess_sc_CI_high = NA, excess_sc_Lus_Median = NA,
+                   # excess_sc_Lus_CI_low = NA, excess_sc_Lus_CI_high = NA, Pop_str = NA))
+
+
+
+p1 <- ggplot(data = Check_the_plot_data, aes(x = date_st))  +
   # ylim(c(-1,8)) +
-  coord_cartesian(ylim = c(-1, 8)) +
+  # annotate(geom = "rect", xmin = as.Date("2020-06-15"), xmax = as.Date("2020-09-05"), ymin = 0, ymax = Inf,
+           # fill = "blue", alpha = 0.2) +
+  # annotate(geom = "rect", xmin = as.Date("2020-12-01"), xmax = as.Date("2021-02-15"), ymin = 0, ymax = Inf,
+           # fill = "blue", alpha = 0.2) +
+  # annotate(geom = "rect", xmin = as.Date("2021-05-01"), xmax = as.Date("2021-07-01"), ymin = 0, ymax = Inf,
+           # fill = "blue", alpha = 0.2) +
+  coord_cartesian(ylim = c(-2, 8)) +
   facet_wrap(~Age_gr, labeller = labeller(Age_gr = Age_groups.labs)) +
   geom_ribbon(aes(ymin = excess_CI_low, ymax = excess_CI_high), linetype = 2, col = "black", alpha = 0.4) +
-  geom_ribbon(aes(ymin = excess_sc_CI_low, ymax = excess_sc_CI_high), linetype = 2, col = "darkred", alpha = 0.2, fill = "darkred") +
-  geom_ribbon(aes(ymin = excess_sc_Lus_CI_low, ymax = excess_sc_Lus_CI_high), linetype = 2, col = "orange", fill = "yellow", alpha = 0.2) +
+  geom_ribbon(aes(ymin = excess_sc_CI_low, ymax = excess_sc_CI_high), linetype = 2, col = "firebrick3", alpha = 0.2, fill = "firebrick3") +
+  # geom_ribbon(aes(ymin = excess_sc_Lus_CI_low, ymax = excess_sc_Lus_CI_high), linetype = 2, col = "orange", fill = "yellow", alpha = 0.2) +
   xlab("Date") + ylab("Excess mortality per capita (/1000)") +
   geom_hline(yintercept = 0, linetype = "dashed") +
-  geom_line(aes(y = excess_sc_Lus_Median, color = "Excess deaths (Lusaka), scaled")) +
-  geom_line(aes(y = excess_sc_Median, color = "Excess deaths (mortuary) scaled")) +
-  geom_line(aes(y = excess_Median, color = "Excess deaths (mortuary)")) +
+  # geom_line(aes(y = excess_sc_Lus_Median, color = "Excess deaths (Lusaka)")) +
+  geom_line(aes(y = excess_sc_Median, color = "Excess deaths (standardised)")) +
+  geom_line(aes(y = excess_Median, color = "Excess deaths")) +
   theme_minimal() +
   theme(legend.position = "bottom") +
   scale_color_manual(name = NULL,
-                       values = c("Excess deaths (mortuary)" = "black",
-                                  "Excess deaths (mortuary) scaled" = "darkred",
-                                  "Excess deaths (Lusaka), scaled" = "orange"
-                                  ))
+                       values = c("Excess deaths" = "black",
+                                  "Excess deaths (standardised)" = "firebrick3"
+                                  # "Excess deaths (Lusaka)" = "orange"
+                                  )) +
+  theme(axis.text.x=element_text(angle = 40, hjust = 1))
 
-pdf(file = "analysis/figures/40_02_2020_study_period_excess_mortality.pdf", height = 8, width = 8)
+pdf(file = "analysis/figures/40_02_2020_study_period_excess_mortality_extended.pdf", height = 5, width = 8)
 p1
 dev.off()
 
-tiff(file = "analysis/figures/40_02_2020_study_period_excess_mortality.tiff", height = 8, width = 8, res=300, units = "in")
+tiff(file = "analysis/figures/40_02_2020_study_period_excess_mortality_extended.tiff", height = 5, width = 8, res=300, units = "in")
 p1
 dev.off()
+
+pdf(file = "analysis/figures/40_02_2020_study_period_excess_mortality_study_period.pdf", height = 8, width = 8)
+p1 + xlim(as.Date(c("2020-06-01", "2020-10-15")))
+dev.off()
+
+tiff(file = "analysis/figures/40_02_2020_study_period_excess_mortality_study_period.tiff", height = 8, width = 8, res=300, units = "in")
+p1 + xlim(as.Date(c("2020-06-01", "2020-10-15")))
+dev.off()
+
 
 
 # sum(Plot_df$excess_Median)

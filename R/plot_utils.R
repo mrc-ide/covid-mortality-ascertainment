@@ -142,35 +142,45 @@ Plot_Heatmaps <- function(Mod_Res, Res_Figs, Select_Runs, Title){
   # IFR_mat_fil <- IFR_mat_fil %>% select(IFR_x, Slope_x)
 
   # IFR_vec <- 1:nrow(IFR_mat) %in% Select_Runs  &  1:nrow(IFR_mat) %in% as.numeric(rownames(readRDS("~/Documents/Imperial/PostDoc/Zambia/covid-mortality-ascertainment/analysis/data/Code-generated-data/00_03_IFR_matrix_coefficients_log_scale.rds")[readRDS("~/Documents/Imperial/PostDoc/Zambia/covid-mortality-ascertainment/analysis/data/Code-generated-data/00_03_Prob_Index_Vector_log_sc.rds"),]))
-  IFR_vec <- 1:81 %in% Select_Runs
+  # IFR_vec <- 1:81 %in% Select_Runs
+  IFR_vec <- !unlist(lapply(Mod_Res, is.null))
+
   # readRDS("analysis/data/Code-generated-data/00_03_Prob_death_logical_log_sc.rds")
 
 
 # browser()
 
   # IFR_mat$AvPost <- NA
-  # IFR_mat$AvPost[IFR_vec] <- unlist(lapply(Mod_Res, get_Posterior))
-  IFR_mat$AvPrior[IFR_vec] <- unlist(lapply(Mod_Res, get_Prior))
+  IFR_mat$AvPost[IFR_vec] <- unlist(lapply(Mod_Res[IFR_vec], get_Posterior))
+  IFR_mat$AvLike[IFR_vec] <- unlist(lapply(Mod_Res[IFR_vec], get_Likelihood))
+  IFR_mat$AvPrior[IFR_vec] <- unlist(lapply(Mod_Res[IFR_vec], get_Prior))
   # IFR_mat$ll_bin[IFR_vec] <- unlist(lapply(Res_Figs, function(x){x$lls$ll_bin}))
   # IFR_mat$ll_pois[IFR_vec] <- unlist(lapply(Res_Figs, function(x){x$lls$ll_pois}))
   # IFR_mat$ll_pcr[IFR_vec] <- unlist(lapply(Res_Figs, function(x){x$lls$ll_pcr}))
   # IFR_mat$ll_sero[IFR_vec] <- unlist(lapply(Res_Figs, function(x){x$lls$ll_sero}))
   # IFR_mat$ll_comb[IFR_vec] <- unlist(lapply(Res_Figs, function(x){x$lls$ll_comb}))
 
-  IFR_mat$ll_bin[IFR_vec] <- unlist(lapply(Res_Figs, function(x){x$ll_bin}))
-  IFR_mat$ll_pois[IFR_vec] <- unlist(lapply(Res_Figs, function(x){x$ll_pois}))
-  IFR_mat$ll_pcr[IFR_vec] <- unlist(lapply(Res_Figs, function(x){x$ll_pcr}))
-  IFR_mat$ll_sero[IFR_vec] <- unlist(lapply(Res_Figs, function(x){x$ll_sero}))
-  IFR_mat$ll_comb[IFR_vec] <- unlist(lapply(Res_Figs, function(x){x$ll_comb}))
+  IFR_mat$ll_binom[IFR_vec] <- unlist(lapply(Res_Figs[IFR_vec], function(x){x$lls$ll_bin}))
+  IFR_mat$ll_pois[IFR_vec] <- unlist(lapply(Res_Figs[IFR_vec], function(x){x$lls$ll_pois}))
+  IFR_mat$ll_pcr[IFR_vec] <- unlist(lapply(Res_Figs[IFR_vec], function(x){x$lls$ll_pcr}))
+  IFR_mat$ll_sero[IFR_vec] <- unlist(lapply(Res_Figs[IFR_vec], function(x){x$lls$ll_sero}))
+  # IFR_mat$ll_comb[IFR_vec] <- unlist(lapply(Res_Figs, function(x){x$lls$ll_comb}))
 
 
-  IFR_mat <- IFR_mat %>% mutate(AvPost = ll_bin + ll_pois + ll_comb + AvPrior)
+  # IFR_mat <- IFR_mat %>% mutate(AvPost = ll_binom + ll_pois + ll_comb + AvPrior)
 
-  IFR_mat <- IFR_mat %>% mutate(Post_col_group = as.numeric(cut(round(AvPost),
+  IFR_mat <- IFR_mat %>% mutate(
+    Prior_col_group = as.numeric(cut(round(AvPrior),
+                                    breaks = c(-Inf, round(max(AvPrior,na.rm = T))- c(500,200,100,50,20,12,8,4,0)),
+                                    labels = as.character(c(1:9)))),
+    Like_col_group = as.numeric(cut(round(AvLike),
+                                     breaks = c(-Inf, round(max(AvLike,na.rm = T))- c(500,200,100,50,20,12,8,4,0)),
+                                     labels = as.character(c(1:9)))),
+    Post_col_group = as.numeric(cut(round(AvPost),
                                                                 breaks = c(-Inf, round(max(AvPost,na.rm = T))- c(500,200,100,50,20,12,8,4,0)),
                                                                 labels = as.character(c(1:9)))),
-                                Bin_col_group = as.numeric(cut(round(ll_bin),
-                                                               breaks = c(-Inf, round(max(ll_bin,na.rm = T))- c(500,200,100,50,20,12,8,4,0)),
+                                Bin_col_group = as.numeric(cut(round(ll_binom),
+                                                               breaks = c(-Inf, round(max(ll_binom,na.rm = T))- c(500,200,100,50,20,12,8,4,0)),
                                                                labels = as.character(c(1:9)))),
                                 Pois_col_group = as.numeric(cut(round(ll_pois),
                                                                 breaks = c(-Inf, round(max(ll_pois,na.rm = T))- c(500,200,100,50,20,12,8,4,0)),
@@ -180,24 +190,41 @@ Plot_Heatmaps <- function(Mod_Res, Res_Figs, Select_Runs, Title){
                                                                labels = as.character(c(1:9)))),
                                 sero_col_group = as.numeric(cut(round(ll_sero),
                                                                 breaks = c(-Inf, round(max(ll_sero,na.rm = T))- c(500,200,100,50,20,12,8,4,0)),
-                                                                labels = as.character(c(1:9)))),
-                                comb_col_group = as.numeric(cut(round(ll_comb),
-                                                                breaks = c(-Inf, round(max(ll_comb,na.rm = T))- c(500,200,100,50,20,12,8,4,0)),
                                                                 labels = as.character(c(1:9)))))
+                                # comb_col_group = as.numeric(cut(round(ll_comb),
+                                                                # breaks = c(-Inf, round(max(ll_comb,na.rm = T))- c(500,200,100,50,20,12,8,4,0)),
+                                                                # labels = as.character(c(1:9)))))
 
-  p1_post <- ggplot(IFR_mat, aes(x = as.factor(round(IFR_x,2)), y = as.factor(round(Slope_x,2)), fill = Post_col_group)) + geom_tile() +
+  # p1_prior <- ggplot(IFR_mat, aes(x = as.factor(round(IFR_x,2)), y = as.factor(round(Slope_x,2)), fill = Prior_col_group)) + geom_tile() +
+  #   geom_text(aes(label = round(AvPrior), colour = (Prior_col_group >= max(Prior_col_group, na.rm=T))), size = 4) +
+  #   scale_colour_manual(values = c("white", "black")) +
+  #   ggtitle("Prior") + xlab("Overall severity") + ylab("IFR age disparity") +
+  #   labs(fill = "Mean Prior") + theme(legend.position = "none") +
+  #   # xlim(0,2) + ylim(0,2) +
+  #   scale_fill_viridis_c()
+
+  p1_like <- ggplot(IFR_mat, aes(x = as.factor(round(IFR_x,2)), y = as.factor(round(Slope_x,2)), fill = Like_col_group)) + geom_tile() +
+    geom_text(aes(label = round(AvLike), colour = (Like_col_group >= max(Like_col_group, na.rm=T))), size = 4) +
+    scale_colour_manual(values = c("white", "black")) +
+    ggtitle("Likelihood") + xlab("Overall severity") + ylab("IFR age disparity") +
+    labs(fill = "Mean Likelihood") + theme(legend.position = "none") +
+    # xlim(0,2) + ylim(0,2) +
+    scale_fill_viridis_c()
+
+
+   p1_post <- ggplot(IFR_mat, aes(x = as.factor(round(IFR_x,2)), y = as.factor(round(Slope_x,2)), fill = Post_col_group)) + geom_tile() +
     geom_text(aes(label = round(AvPost), colour = (Post_col_group >= max(Post_col_group, na.rm=T))), size = 4) +
     scale_colour_manual(values = c("white", "black")) +
-    ggtitle("Overall") + xlab("xIFR") + ylab("xSlope") +
+    ggtitle("Overall") + xlab("Overall severity") + ylab("IFR age disparity") +
     labs(fill = "Mean Post") + theme(legend.position = "none") +
     # xlim(0,2) + ylim(0,2) +
     scale_fill_viridis_c()
 
 
   p2_bin <- ggplot(IFR_mat, aes(x = as.factor(round(IFR_x,2)), y = as.factor(round(Slope_x,2)), fill = Bin_col_group)) + geom_tile() +
-    geom_text(aes(label = round(ll_bin), colour = (Bin_col_group >= max(Bin_col_group, na.rm=T))), size = 4) +
+    geom_text(aes(label = round(ll_binom), colour = (Bin_col_group >= max(Bin_col_group, na.rm=T))), size = 4) +
     scale_colour_manual(values = c("white", "black")) +
-    ggtitle("C19 prevalence in post-mortem samples") + xlab("xIFR") + ylab("xSlope") +
+    ggtitle("C19 prevalence in post-mortem samples") + xlab("Overall severity") + ylab("IFR age disparity") +
     labs(fill = "Mean ll bin") + theme(legend.position = "none") +
     # xlim(0,2) + ylim(0,2) +
     scale_fill_viridis_c()
@@ -205,40 +232,48 @@ Plot_Heatmaps <- function(Mod_Res, Res_Figs, Select_Runs, Title){
   p3_pois <- ggplot(IFR_mat, aes(x = as.factor(round(IFR_x,2)), y = as.factor(round(Slope_x,2)), fill = Pois_col_group)) + geom_tile() +
     geom_text(aes(label = round(ll_pois), colour = (Pois_col_group >= max(Pois_col_group, na.rm=T))), size = 4) +
     scale_colour_manual(values = c("white", "black")) +
-    ggtitle("Mortuary arrival rate") + xlab("xIFR") + ylab("xSlope") +
+    ggtitle("Burial registration rate") + xlab("Overall severity") + ylab("IFR age disparity") +
     labs(fill = "Mean ll pois") + theme(legend.position = "none") +
     # xlim(0,2) + ylim(0,2) +
     scale_fill_viridis_c()
 
-  # p4_pcr <- ggplot(IFR_mat, aes(x = as.factor(round(IFR_x,2)), y = as.factor(round(Slope_x,2)), fill = pcr_col_group)) + geom_tile() +
-  #   geom_text(aes(label = round(ll_pcr), colour = (pcr_col_group >= max(pcr_col_group, na.rm=T))), size = 4) +
-  #   scale_colour_manual(values = c("white", "black")) +
-  #   ggtitle("ll bin pcr") + xlab("xIFR") + ylab("xSlope") +
-  #   labs(fill = "Mean ll bin pcr") + theme(legend.position = "none") +
-  #   # xlim(0,2) + ylim(0,2) +
-  #   scale_fill_viridis_c()
-  #
-  # p5_sero <- ggplot(IFR_mat, aes(x = as.factor(round(IFR_x,2)), y = as.factor(round(Slope_x,2)), fill = sero_col_group)) + geom_tile() +
-  #   geom_text(aes(label = round(ll_sero), colour = (sero_col_group >= max(sero_col_group, na.rm=T))), size = 4) +
-  #   scale_colour_manual(values = c("white", "black")) +
-  #   ggtitle("ll bin sero") + xlab("xIFR") + ylab("xSlope") +
-  #   labs(fill = "Mean ll bin sero") + theme(legend.position = "none") +
-  #   # xlim(0,2) + ylim(0,2) +
-  #   scale_fill_viridis_c()
-
-  p6_comb <- ggplot(IFR_mat, aes(x = as.factor(round(IFR_x,2)), y = as.factor(round(Slope_x,2)), fill = comb_col_group)) + geom_tile() +
-    geom_text(aes(label = round(ll_comb), colour = (comb_col_group >= max(comb_col_group, na.rm=T))), size = 4) +
+  p4_pcr <- ggplot(IFR_mat, aes(x = as.factor(round(IFR_x,2)), y = as.factor(round(Slope_x,2)), fill = pcr_col_group)) + geom_tile() +
+    geom_text(aes(label = round(ll_pcr), colour = (pcr_col_group >= max(pcr_col_group, na.rm=T))), size = 4) +
     scale_colour_manual(values = c("white", "black")) +
-    ggtitle("Population prevalence survey") + xlab("xIFR") + ylab("xSlope") +
-    labs(fill = "Mean ll bin comb") + theme(legend.position = "none") +
+    ggtitle("PCR prevalence") + xlab("Overall severity") + ylab("IFR age disparity") +
+    labs(fill = "Mean ll bin pcr") + theme(legend.position = "none") +
     # xlim(0,2) + ylim(0,2) +
     scale_fill_viridis_c()
+
+  p5_sero <- ggplot(IFR_mat, aes(x = as.factor(round(IFR_x,2)), y = as.factor(round(Slope_x,2)), fill = sero_col_group)) + geom_tile() +
+    geom_text(aes(label = round(ll_sero), colour = (sero_col_group >= max(sero_col_group, na.rm=T))), size = 4) +
+    scale_colour_manual(values = c("white", "black")) +
+    ggtitle("Seroprevalence") + xlab("Overall severity") + ylab("IFR age disparity") +
+    labs(fill = "Mean ll bin sero") + theme(legend.position = "none") +
+    # xlim(0,2) + ylim(0,2) +
+    scale_fill_viridis_c()
+
+  # p6_comb <- ggplot(IFR_mat, aes(x = as.factor(round(IFR_x,2)), y = as.factor(round(Slope_x,2)), fill = comb_col_group)) + geom_tile() +
+  #   geom_text(aes(label = round(ll_comb), colour = (comb_col_group >= max(comb_col_group, na.rm=T))), size = 4) +
+  #   scale_colour_manual(values = c("white", "black")) +
+  #   ggtitle("Population prevalence survey") + xlab("Overall severity") + ylab("IFR age disparity") +
+  #   labs(fill = "Mean ll bin comb") + theme(legend.position = "none") +
+  #   # xlim(0,2) + ylim(0,2) +
+  #   scale_fill_viridis_c()
 
   title_gg <- ggplot() +
     labs(title = Title)
   # browser()
-  Figure1 <- cowplot::plot_grid(title_gg, cowplot::plot_grid(p1_post, p3_pois, p2_bin, p6_comb), ncol = 1, rel_heights = c(0.03, 1))+
+  Figure1 <- cowplot::plot_grid(title_gg, cowplot::plot_grid(p1_post,p1_like, p3_pois, p2_bin, p4_pcr, p5_sero), ncol = 1, rel_heights = c(0.03, 1))+
   ggpubr::theme_pubr()
+# browser()
+# pdf("analysis/figures/39_heatmap_overall.pdf", width = 4.5, height = 4.5)
+# p1_post + ggtitle("")
+# dev.off()
+
+# tiff("analysis/figures/39_heatmap_overall.tiff", units = "in", res = 300, width = 4.5, height = 4.5)
+# p1_post + ggtitle("")
+# dev.off()
 
   # return(list(p1_post, p2_bin, p3_pois, p4_pcr, p5_sero, p6_comb))
 }

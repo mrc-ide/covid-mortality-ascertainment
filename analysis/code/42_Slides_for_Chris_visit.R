@@ -1,10 +1,11 @@
 ####
 # Mortality ascertainment
 ## What do I want to show here?
-library(tidyverse)
+library(dplyr)
 # devtools::load_all()
-# library(tidyr)
+library(tidyr)
 library(reshape2)
+library(ggplot2)
 devtools::load_all()
 
 
@@ -26,12 +27,13 @@ Select_Runs <- IFR_coefficients %>%
   pull(Index)
 
 
-fit_Model <- Test2
-# fit_Model <- readRDS("../Bonus Files/2022-04-27_Model_Fit_10_pois_bin_bin_int_over.rds")[[1]]
+# fit_Model <- Test2
+fit_Model <- readRDS("../Bonus Files/2022-05-20_L10_Fixed_Int.rds")
 IFR_x <- IFR_coefficients$IFR_x[41]
 IFR_slope <- IFR_coefficients$Slope_x[41]
 
-LL_Res_1_1 <- get_ll_components(fit_Model = fit_Model, IFR_slope = IFR_slope, IFR_x = IFR_x)
+LL_Res_1_1 <- get_ll_components(fit_Model = fit_Model$X41, IFR_slope = IFR_slope, IFR_x = IFR_x)
+# LL_Res_1_1 <- get_ll_components(fit_Model = fit_Model$X28, IFR_slope = IFR_slope, IFR_x = IFR_x)
 # LL_Res_1_1 <- get_ll_components(fit_Model = fit_Model$X41, IFR_slope = IFR_slope, IFR_x = IFR_x)
 
 LL_Res <- lapply(1:length(fit_Model), function(x){
@@ -44,7 +46,7 @@ doLL_Res[[1]]
 
 get_ll_components <- function(fit_Model, IFR_slope, IFR_x){
 
-  browser()
+  # browser()
 
   pcr_det <- fit_Model$pmcmc_results$inputs$pars_obs$pcr_det
   comb_det <- fit_Model$pmcmc_results$inputs$pars_obs$comb_det
@@ -72,15 +74,79 @@ get_ll_components <- function(fit_Model, IFR_slope, IFR_x){
            pcr_pos = cma:::roll_func_10(infs, pcr_det),
            pcr_perc = pcr_pos/max(Sus,na.rm = T))
 
-  # Attack_rates <- Mod_Age_Deaths_Lus_pcr %>% group_by(Age_gr) %>%
-  #   summarise(max_sus = max(Sus)) %>%
-  #   merge(Mod_Age_Deaths_Lus_pcr) %>% group_by(Age_gr, date) %>%
-  #   summarise(cum_infs = median(cum_infs),
-  #             attack_rate = cum_infs/max_sus)
-  #
-  # ggplot(Attack_rates, aes(x = date, y = attack_rate)) + geom_line() +
-  #   facet_wrap(~Age_gr) +
-  #   theme_minimal()
+
+  PCR_perc <- Mod_Age_Deaths_Lus_pcr %>% group_by(Age_gr, date) %>%
+    summarise(pcr_perc = median(pcr_perc))
+
+  ggplot(PCR_perc, aes(x = date, y = pcr_perc)) + geom_line() +
+    facet_wrap(~Age_gr) +
+    theme_minimal()
+
+
+  Attack_rates <- Mod_Age_Deaths_Lus_pcr %>% group_by(Age_gr) %>%
+    summarise(max_sus = max(Sus)) %>%
+    merge(Mod_Age_Deaths_Lus_pcr) %>% group_by(Age_gr, date) %>%
+    summarise(cum_infs = median(cum_infs),
+              max_sus = max_sus[1]) %>%
+    mutate(attack_rate = cum_infs/max_sus)
+
+  ggplot(Attack_rates, aes(x = date, y = attack_rate)) + geom_line() +
+    facet_wrap(~Age_gr) +
+    theme_minimal()
+
+  Mod_Age_Deaths_Lus_Combined_Prev <- fit_Model$output[,c(index$S),] %>%
+    melt(varnames = c("date","var","Replicate"), value.name = "Sus") %>%
+    mutate(Age_gr = as.numeric(gsub(".*?([0-9]+).*", '\\1', var)),
+           var = substr(var, 1, 1),
+           date = as.Date(date)) %>%
+    # dcast(... ~ var, value.var="value") %>%
+    # rename(Sus = "S") %>%
+    mutate(Age_gr_10 = ifelse(Age_gr>=15, 8, ceiling(Age_gr/2))) %>%
+    group_by(Age_gr, Replicate) %>%
+    # replace_na(list(Mod_cd_Lus = 0)) %>%
+    mutate(Sus = ifelse(is.na(Sus), max(Sus, na.rm=T), Sus)) %>%
+    mutate(infs = c(0, as.integer(diff(max(Sus, na.rm = T)-Sus))),
+           comb_pos = roll_func(infs, comb_det),
+           comb_perc = comb_pos/max(Sus,na.rm = T))
+
+
+  Comb_prev_df <- Mod_Age_Deaths_Lus_Combined_Prev %>% group_by(date, Age_gr_10) %>%
+    summarise(comb_perc_mean = mean(comb_perc),
+              comb_perc_max = max(comb_perc),
+              comb_perc_min = min(comb_perc))
+
+  Mulenga_Combined_Prevalence_Age <- readRDS("analysis/data/Code-generated-data/14_Mulenga_Combined_Prevalence_by_Age.rds") %>%
+    mutate(Age_gr_10 = 1:8)
+
+  Age_groups.labs_comb_prev <- Comb_prev_df %>% ungroup() %>% select(Age_gr_10) %>%
+    unique() %>%
+    # summarise(ll_pois_mean = sum(ll_pois_mean)) %>%
+    # mutate(lab = paste0("pois ll AG ",Age_gr_10,": ", round(ll_pois_mean,1))) %>%
+    mutate(lab = case_when(
+      Age_gr_10==1 ~ paste0("Age: 0-9"),
+      Age_gr_10==2 ~ paste0("Age: 10-19"),
+      Age_gr_10==3 ~ paste0("Age: 20-29"),
+      Age_gr_10==4 ~ paste0("Age: 30-39"),
+      Age_gr_10==5 ~ paste0("Age: 40-49"),
+      Age_gr_10==6 ~ paste0("Age: 50-59"),
+      Age_gr_10==7 ~ paste0("Age: 60-69"),
+      Age_gr_10==8 ~ paste0("Age: 70+"))) %>%
+    select(lab) %>%
+    unlist()
+  names(Age_groups.labs_comb_prev) <- 1:8
+
+
+  Figure4 <- ggplot(merge(Comb_prev_df,Mulenga_Combined_Prevalence_Age), aes(x = date)) +
+    geom_line(aes(y=comb_perc_mean*100)) +
+    geom_ribbon(aes(ymin=comb_perc_min*100, ymax=comb_perc_max*100), alpha=0.3) +
+    facet_wrap(vars(Age_gr_10), labeller = labeller(Age_gr_10 = Age_groups.labs_comb_prev)) +
+    xlab("Date") + ylab("Combined prevalence %") +
+    # ggtitle(paste0("IFR x ", IFRvals$IFR_x[fit_num],", Slope x ", IFRvals$Slope_x[fit_num],"\nModelled COVID-19 Combined prevalence Lusaka")) +
+    theme(plot.title = element_text(size = 10)) +
+    geom_point(data = Mulenga_Combined_Prevalence_Age, aes(x= as.Date("2020-07-15"), y = Combined_Prev)) +
+    geom_errorbar(data = Mulenga_Combined_Prevalence_Age, aes(ymin=LowerInt,ymax=HigherInt,x=as.Date("2020-07-15"), width=10)) +
+    geom_errorbarh(mapping = aes(y = Combined_Prev, xmin=as.Date("2020-07-04"), xmax=as.Date("2020-07-27"),height = 0))
+
   #
   # ggplot(Attack_rates, aes(x = date, y = attack_rate)) + geom_line() +
   #   facet_wrap(~Age_gr) +
@@ -107,35 +173,41 @@ get_ll_components <- function(fit_Model, IFR_slope, IFR_x){
     # rename(Mod_cd_Lus_b = "Mod_cd_Lus")
 
   # merge(Mod_Deaths_Age %>% select(Week_gr, Age_gr, Mod_cd_Lus), Mod_Age_Deaths_Lus)
-
+# browser()
   LL_Distributions <- lapply(1:length(fit_Model$pmcmc_results$inputs$pars_obs$combined_data$dfj_mcmc_data), function(y){
-
+# browser()
     tmp_df <- merge(Mod_Age_Deaths_Lus, fit_Model$pmcmc_results$inputs$pars_obs$combined_data$dfj_mcmc_data[[y]])
     tmp_df$Mod_cd_UTH <- tmp_df$Mod_cd_80*tmp_df$ag1std
     tmp_df$Mod_tot_ds_Mort <- tmp_df$Mod_cd_UTH + tmp_df$Mort_ncd_mcmc
-    tmp_df$ll_pois <- dpois(x = tmp_df$Mort_deaths, lambda = tmp_df$Mod_tot_ds_Mort, log = T)
+    tmp_df$l_pois <- dpois(x = tmp_df$Mort_deaths, lambda = tmp_df$Mod_tot_ds_Mort, log = F)
 
     tmp_df$Mod_ncd_UTH <- ifelse((tmp_df$Mort_deaths - tmp_df$Mod_cd_UTH)<0,0,(tmp_df$Mort_deaths - tmp_df$Mod_cd_UTH))
     tmp_df$Mod_pos_ds_UTH <- tmp_df$Mod_cd_UTH+tmp_df$Mod_ncd_UTH*tmp_df$pcr_perc # total positive deaths (covid and coincidental)
     tmp_df$Mod_tot_ds_UTH_unstd <- tmp_df$Mod_tot_ds_Mort/tmp_df$ag1std
     tmp_df$Pos_prev <- ifelse(tmp_df$Mod_pos_ds_UTH<=tmp_df$Mort_deaths,tmp_df$Mod_pos_ds_UTH/tmp_df$Mort_deaths, 0.999)
-    tmp_df$ll_binom <- dbinom(tmp_df$PosTests, tmp_df$Samples, prob = tmp_df$Pos_prev)
-    tmp_df <- tmp_df[c("Week_gr", "Age_gr","Replicate", "ll_pois", "ll_binom", "Mod_cd_Lus","infs","pcr_perc","Mod_cd_80","Mod_cd_UTH","Mod_tot_ds_Mort","Mod_tot_ds_UTH_unstd", "Mod_pos_ds_UTH","Mort_deaths","Pos_prev")]
+    tmp_df$l_binom <- dbinom(tmp_df$PosTests, tmp_df$Samples, prob = tmp_df$Pos_prev, log = F)
+    tmp_df$Sample_no <- y
+    tmp_df <- tmp_df[c("Sample_no", "Week_gr", "Age_gr","Replicate", "l_pois", "l_binom", "Mod_cd_Lus","infs","pcr_perc","Mod_cd_80","Mod_cd_UTH","Mod_tot_ds_Mort","Mod_tot_ds_UTH_unstd", "Mod_pos_ds_UTH","Mort_deaths","Pos_prev")]
 
   })
 
+  browser()
+  Res_2d <- data.table::rbindlist(LL_Distributions)
+  # Res_2d %>% arrange(Replicate, Week_gr, Age_gr) %>%
+    # mutate()
 
-  str2str::ld2a(LL_Distributions) %>%
-    pivot_longer() %>%
-    group_by(Age_gr, Week_gr, Replicate) %>%
-    summarise(av_ll_pois = mean(ll_pois),
-              av_ll_bin = mean(ll_bin)
-              )
+  # Res_2d$l_pois[1:100] <- class(exp(Brobdingnag::as.brob(Res_2d$ll_pois))[1:100])
 
-  str2str::ld2a(LL_Distributions) %>%
-    group_by(Replicate)
+  # Res_2d$l_pois <- exp(Res_2d$ll_pois)#  group_by(Week_gr, Age_gr, Replicate) %>%
 
-  exp(Brobdingnag::as.brob(sum(LL_Distributions[[1]]$ll_pois)))
+  ll_ov_pois_bin <- Res_2d %>% group_by(Replicate, Sample_no) %>%
+    summarise(ll_pois_prod = log(Brobdingnag::prod(Brobdingnag::as.brob(l_pois))),
+              l_binom_prod = prod(l_binom)) %>%
+  ## Then take the mean of everything?
+    ungroup() %>%
+    summarise(ll_pois_mean_overall = log(Brobdingnag::sum(exp(Brobdingnag::as.brob(ll_pois_prod)))/length(ll_pois_prod)),
+              ll_bin_mean_overall = log(mean(l_binom_prod)))
+
 
   ##############################################################################
   ##############################################################################
@@ -143,36 +215,50 @@ get_ll_components <- function(fit_Model, IFR_slope, IFR_x){
 
   # LL_Distributions[[1]]
 
-  ll_aw <- apply(str2str::ld2a(LL_Distributions), 2, rowMeans)
-  ll_aw <- merge(ll_aw,fit_Model$pmcmc_results$inputs$pars_obs$combined_data$Comb_data)
+  # ll_aw <- apply(str2str::ld2a(LL_Distributions), 2, rowMeans)
+  # ll_aw <- merge(ll_aw,fit_Model$pmcmc_results$inputs$pars_obs$combined_data$Comb_data)
   # ll_aw <- sum(dbinom(ll_aw$PosTests, ll_aw$Samples, prob = ll_aw$Pos_prev, log = T), log(ll_aw$ll_pois))
 
-  ll_aw <- ll_aw %>% group_by(Replicate, Age_gr,Week_gr) %>%
-    mutate(ll_bin = dbinom(PosTests, Samples, prob = Pos_prev)) %>%
-    group_by(Age_gr,Week_gr) %>%
+
+  ### Now what should I do with the Replicates and Samples?
+
+  ll_aw_pois <- Res_2d %>% group_by(Age_gr, Week_gr) %>%
+    summarise(ll_pois_mean_age_week = log(Brobdingnag::sum(Brobdingnag::as.brob(l_pois))/length(l_pois)),
+              ll_pois_min_age_week = log(min(Brobdingnag::as.brob(l_pois))),
+              ll_pois_max_age_week = log(max(Brobdingnag::as.brob(l_pois)))
+              )
+
+  ll_aw <- Res_2d %>% group_by(Age_gr, Week_gr) %>%
+    summarise_at(c("l_binom", "Mod_cd_Lus", "Mod_pos_ds_UTH", "Mod_cd_80","Mod_cd_UTH","Mod_tot_ds_Mort","Mod_tot_ds_UTH_unstd","Mort_deaths","pcr_perc","infs","Pos_prev"), list(mean = mean, min = min, max = max), na.rm = TRUE) %>%
+    merge(unique(Mod_Age_Deaths_Lus %>% select(Week_gr, date)))
+
+
+  # ll_aw <- ll_aw %>% group_by(Replicate, Age_gr,Week_gr) %>%
+    # mutate(ll_bin = dbinom(PosTests, Samples, prob = Pos_prev)) %>%
+    # group_by(Age_gr,Week_gr) %>%
 
     # filter(Replicate==1) %>%
     # mutate(ll_pois = log(ll_pois),
            # ll_sum = ll_pois+ll_bin) %>% pull(ll_sum) %>% sum()
 
-    summarise_at(c("ll_bin", "ll_pois", "Mod_cd_Lus", "Mod_pos_ds_UTH", "Mod_cd_80","Mod_cd_UTH","Mod_tot_ds_Mort","Mod_tot_ds_UTH_unstd","Mort_deaths","pcr_perc","infs","Pos_prev"), list(mean = mean, min = min, max = max), na.rm = TRUE) %>%
-    mutate(ll_bin_mean = log(ll_bin_mean),
-           ll_bin_min = log(ll_bin_min),
-           ll_bin_max = log(ll_bin_max),
-           ll_pois_mean = log(ll_pois_mean),
-           ll_pois_min = log(ll_pois_min),
-           ll_pois_max = log(ll_pois_max)) %>%
-    merge(unique(Mod_Age_Deaths_Lus %>% select(Week_gr, date)))
+    # summarise_at(c("ll_bin", "ll_pois", "Mod_cd_Lus", "Mod_pos_ds_UTH", "Mod_cd_80","Mod_cd_UTH","Mod_tot_ds_Mort","Mod_tot_ds_UTH_unstd","Mort_deaths","pcr_perc","infs","Pos_prev"), list(mean = mean, min = min, max = max), na.rm = TRUE) %>%
+    # mutate(ll_bin_mean = log(ll_bin_mean),
+           # ll_bin_min = log(ll_bin_min),
+           # ll_bin_max = log(ll_bin_max),
+           # ll_pois_mean = log(ll_pois_mean),
+           # ll_pois_min = log(ll_pois_min),
+           # ll_pois_max = log(ll_pois_max)) %>%
+    # merge(unique(Mod_Age_Deaths_Lus %>% select(Week_gr, date)))
 
-  ll_aw %>% select(date, Age_gr, Week_gr, infs_mean, infs_max, infs_min)
-  Pop_str <- readRDS(file = "analysis/data/Code-generated-data/00_02_Lusaka_Dist_Pop_Struc_2020_opendataforafrica.rds")
-  Pop_str_df <- data.frame(Age_gr = 1:17, Pop_str = Pop_str)
+  # ll_aw %>% select(date, Age_gr, Week_gr, infs_mean, infs_max, infs_min)
+  # Pop_str <- readRDS(file = "analysis/data/Code-generated-data/00_02_Lusaka_Dist_Pop_Struc_2020_opendataforafrica.rds")
+  # Pop_str_df <- data.frame(Age_gr = 1:17, Pop_str = Pop_str)
 
-  Attack_Rates <- merge(ll_aw, Pop_str_df) %>%
-    mutate(attack_rate = infs_mean/Pop_str)
+  # Attack_Rates <- merge(ll_aw, Pop_str_df) %>%
+    # mutate(attack_rate = infs_mean/Pop_str)
 
-  ggplot(Attack_Rates, aes(x = date, y = attack_rate)) + geom_point() +
-    facet_wrap(~Age_gr)
+  # ggplot(Attack_Rates, aes(x = date, y = attack_rate)) + geom_point() +
+    # facet_wrap(~Age_gr)
 
 
   Mod_Age_Deaths_Lus_Av_Week <- ll_aw %>% #merge(Mod_Age_Deaths_Lus_Av, FullData[,c("Age_gr","Week_gr","date")]) %>%
@@ -221,12 +307,12 @@ get_ll_components <- function(fit_Model, IFR_slope, IFR_x){
 
 
   lls <- list(
-    ll_bin = sum(ll_aw$ll_bin_mean, na.rm = T),
-    ll_pois = sum(ll_aw$ll_pois_mean, na.rm = T),
+    ll_bin = ll_ov_pois_bin$ll_bin_mean_overall,
+    ll_pois = ll_ov_pois_bin$ll_pois_mean_overall,
     ll_pcr = sero_pcr_ll$ll_pcr,
     ll_sero = sero_pcr_ll$ll_sero,
     ll_comb = comb_ll$ll_combined,
-    ll_tot = sum(ll_aw$ll_bin_mean, ll_aw$ll_pois_mean, ll_aw$ll_comb_mean))
+    ll_tot = sum(ll_ov_pois_bin$ll_bin_mean_overall, ll_ov_pois_bin$ll_pois_mean_overall, ll_aw$ll_comb_mean))
 
 
 
@@ -237,8 +323,8 @@ get_ll_components <- function(fit_Model, IFR_slope, IFR_x){
 
   ### Plots
 
-  Age_groups.labs <- ll_aw %>% group_by(Age_gr) %>%
-    summarise(ll_pois_mean = sum(ll_pois_mean)) %>%
+  Age_groups.labs <- ll_aw_pois %>% group_by(Age_gr) %>%
+    summarise(ll_pois_mean = sum(ll_pois_mean_age_week)) %>%
     mutate(lab = paste0("pois ll AG ",Age_gr,": ", round(ll_pois_mean,1))) %>%
     mutate(lab = case_when(
       Age_gr==1 ~ paste0("Age: 0-4"),
@@ -289,8 +375,8 @@ get_ll_components <- function(fit_Model, IFR_slope, IFR_x){
     # ggpubr::theme_pubr(legend = "bottom")
 #
 
-  Age_groups.labs <- ll_aw %>% group_by(Age_gr) %>%
-    summarise(ll_pois_mean = sum(ll_pois_mean)) %>%
+  Age_groups.labs <- ll_aw_pois %>% group_by(Age_gr) %>%
+    summarise(ll_pois_mean = sum(ll_pois_mean_age_week)) %>%
     mutate(lab = paste0("pois ll AG ",Age_gr,": ", round(ll_pois_mean,1))) %>%
     mutate(lab = case_when(
       Age_gr==1 ~ paste0("Age: 0-4; Pois ll = ",round(ll_pois_mean,1)),
@@ -336,7 +422,7 @@ get_ll_components <- function(fit_Model, IFR_slope, IFR_x){
     geom_point(aes(y = Mort_deaths_mean, color = "Mortuary deaths")) +
     # Scaled True deaths
     xlab("Date") + ylab("Deaths") +
-    ggtitle(paste0("COVID-19 weekly deaths (Mortuary)\nIFR x ", round(IFR_x,2),", Slope x ", round(IFR_slope,2),"\npois ll = ", round(sum(ll_aw$ll_pois_mean, na.rm = T),1))) +
+    ggtitle(paste0("COVID-19 weekly deaths (Mortuary)\nIFR x ", round(IFR_x,2),", Slope x ", round(IFR_slope,2),"\npois ll = ", round(sum(ll_aw_pois$ll_pois_mean_age_week, na.rm = T),1))) +
     geom_point(data = ll_aw %>% filter(Week_gr %in% c(4,5)), aes(x = Week_gr, y = Mort_deaths_mean, color = "Questionable data points")) +
     theme(plot.title = element_text(size = 10),
           legend.position = c(1,0), legend.justification = c(1,0),
@@ -642,15 +728,15 @@ curve(expr = IFR_df$Int_abs[4] + IFR_df$Slope_abs[4]*x, from = 0, 100)
 curve(expr = IFR_df$Int_abs[2] + IFR_df$Slope_abs[2]*x, from = 0, 100, add = T)
 curve(expr = IFR_df$Int_abs[3] + IFR_df$Slope_abs[3]*x, from = 0, 100, add = T)
 
-IFR_df$tmp_var <- "Varying intercept (log10 scale)"
+IFR_df$tmp_var <- "Varying intercept (log10)"
 IFR_df$tmp_var2 <- "Varying intercept"
-IFR_df$tmp_var3 <- "Varying slope (log10 scale)"
+IFR_df$tmp_var3 <- "Varying slope (log10)"
 IFR_df$tmp_var4 <- "Varying slope"
 
 p1_IFR <- ggplot(IFR_df) + xlim(0,90) + geom_function(fun = function(x) exp(IFR_df$Int_abs[2] + IFR_df$Slope_abs[2]*x), linetype = 2) +
   geom_function(fun = function(x) exp(IFR_df$Int_abs[3] + IFR_df$Slope_abs[3]*x)) +
   geom_function(fun = function(x) exp(IFR_df$Int_abs[4] + IFR_df$Slope_abs[4]*x), linetype = 2) +
-  theme_minimal() + xlab("Age") + ylab("IFR") +
+  theme_minimal() + xlab("Age") + ylab("IFR (%)") +
   scale_y_continuous(trans='log10')+
   # ggtitle("Varying intercept (log10 scale)") +
   geom_segment(aes(x = 89, y = 13, xend = 89, yend = 45),
@@ -661,7 +747,7 @@ p1_IFR <- ggplot(IFR_df) + xlim(0,90) + geom_function(fun = function(x) exp(IFR_
 p2_IFR <- ggplot(IFR_df) + xlim(0,90) + geom_function(fun = function(x) exp(IFR_df$Int_abs[2] + IFR_df$Slope_abs[2]*x), linetype = 2) +
   geom_function(fun = function(x) exp(IFR_df$Int_abs[3] + IFR_df$Slope_abs[3]*x)) +
   geom_function(fun = function(x) exp(IFR_df$Int_abs[4] + IFR_df$Slope_abs[4]*x), linetype = 2) +
-  theme_minimal() + xlab("Age") + ylab("IFR")+
+  theme_minimal() + xlab("Age") + ylab("IFR (%)")+
   # ggtitle("Varying intercept")+
   geom_segment(aes(x = 89, y = 13, xend = 89, yend = 45),
                arrow = arrow(length = unit(0.3, "cm")), size = 0.4) +
@@ -671,7 +757,7 @@ p2_IFR <- ggplot(IFR_df) + xlim(0,90) + geom_function(fun = function(x) exp(IFR_
 p3_IFR <- ggplot(IFR_df) + xlim(0,90) + geom_function(fun = function(x) exp(IFR_df$Int_abs[1] + IFR_df$Slope_abs[1]*x), linetype = 2) +
   geom_function(fun = function(x) exp(IFR_df$Int_abs[3] + IFR_df$Slope_abs[3]*x)) +
   geom_function(fun = function(x) exp(IFR_df$Int_abs[5] + IFR_df$Slope_abs[5]*x), linetype = 2) +
-  theme_minimal() + xlab("Age") + ylab("IFR")+
+  theme_minimal() + xlab("Age") + ylab("IFR (%)")+
   scale_y_continuous(trans='log10')+
   # ggtitle("Varying slope (log10 scale)")+
   geom_segment(aes(x = 89, y = 13, xend = 89, yend = 80),
@@ -682,17 +768,17 @@ p3_IFR <- ggplot(IFR_df) + xlim(0,90) + geom_function(fun = function(x) exp(IFR_
 p4_IFR <- ggplot(IFR_df) + xlim(0,90) + geom_function(fun = function(x) exp(IFR_df$Int_abs[1] + IFR_df$Slope_abs[1]*x), linetype = 2) +
   geom_function(fun = function(x) exp(IFR_df$Int_abs[3] + IFR_df$Slope_abs[3]*x)) +
   geom_function(fun = function(x) exp(IFR_df$Int_abs[5] + IFR_df$Slope_abs[5]*x), linetype = 2) +
-  theme_minimal() + xlab("Age") + ylab("IFR")+
+  theme_minimal() + xlab("Age") + ylab("IFR (%)")+
   # ggtitle("Varying slope")+
   geom_segment(aes(x = 89, y = 13, xend = 89, yend = 80),
                arrow = arrow(length = unit(0.3, "cm")), size = 0.4) +
   geom_segment(aes(x = 89, y = 9, xend = 89, yend = 1),
                arrow = arrow(length = unit(0.3, "cm")), size = 0.4) + facet_grid(. ~ tmp_var4)
 
-pdf("analysis/figures/42_Varying_IFR_info.pdf")
+pdf("analysis/figures/42_Varying_IFR_info.pdf", width = 4.5, height = 4.5)
 cowplot::plot_grid(p2_IFR, p4_IFR, p1_IFR, p3_IFR)
 dev.off()
 
-tiff("analysis/figures/42_Varying_IFR_info.tiff", width = 7, height = 7, units = "in", res = 300)
+tiff("analysis/figures/42_Varying_IFR_info.tiff", width = 4.5, height = 4.5, units = "in", res = 300)
 cowplot::plot_grid(p2_IFR, p4_IFR, p1_IFR, p3_IFR)
 dev.off()
