@@ -110,14 +110,47 @@ Select_Runs <- IFR_coefficients %>%
 
 
 devtools::load_all()
-# Res_10 <- readRDS("../Bonus Files/2022-07-20_L10_default_full_set.rds")
-# Title <- "Default Model Fit"
-Res_10 <- readRDS("../Bonus Files/2022-07-22_L10_Remove_wk_4_5_age_1.rds")
-Title <- "Remove weeks 4-5 and age <5"
-# Res_10 <- lapply(Res_10, function(x){if(class(x)[1] != "squire_simulation"){NULL}else{x}})
+Res_10 <- readRDS("../Bonus Files/2022-07-20_L10_default_full_set.rds")
+Title <- "Default Model Fit"
+# Res_10 <- readRDS("../Bonus Files/2022-07-22_L10_Remove_wk_4_5_age_1.rds")
+# Title <- "Remove weeks 4-5 and age <5"
+Res_10 <- lapply(Res_10, function(x){if(class(x)[1] != "squire_simulation"){NULL}else{x}})
 # lapply(Res_10, function(x){table(as.Date(x$replicate_parameters$start_date))})
 # Res_10b <- readRDS("../Bonus Files/2022-07-18_L10_disaggregated_sero_and_pcr_remaining_runs.rds")
-Res_10_plots <- lapply(X =1:length(Res_10), FUN = Diagnostic_Plot_10, fit_Model_list = Res_10, IFRvals = IFR_coefficients)
+dfj_mcmc_data <- readRDS("analysis/data/Code-generated-data/00_16_03_drj_mcmc_data_new_pop_str.rds")
+Res_10_1x1_plot <- lapply(X =1, FUN = Diagnostic_Plot_10, fit_Model_list = list(Res_10$X41), IFRvals = IFR_coefficients[41,], full_drjacoby_fit_data = dfj_mcmc_data,
+                       filter_set = "remove_weeks_4_and_5_and_age_under_5s", Return_likelihoods_only = F)
+
+Figure_3_plot <- cowplot::plot_grid(cowplot::plot_grid(ggplot() + theme_void() + ggtitle("UTH mortuary post-mortem PCR prevalence") + theme(plot.title = element_text(hjust = 0.5, vjust = - 4)),
+                                                       ggplot() + theme_void() + ggtitle("Lusaka population PCR/serosurvey") + theme(plot.title = element_text(hjust = 0.5, vjust = - 4)), rel_widths = c(2,1)),
+                                    cowplot::plot_grid(Res_10_1x1_plot[[1]]$Week_prev_plot + theme(legend.position = "none"),
+                                                       Res_10_1x1_plot[[1]]$Age_prev_plot + theme(legend.position = "none"),
+                                                       Res_10_1x1_plot[[1]]$PCR_sero_prev_plot + theme(legend.position = "none"), ncol = 3),
+                                    cowplot::plot_grid(ggpubr::get_legend(Res_10_1x1_plot[[1]]$Week_prev_plot),
+                                                       ggpubr::get_legend(Res_10_1x1_plot[[1]]$PCR_sero_prev_plot), rel_widths = c(2,1), ncol = 2),
+                                    cowplot::plot_grid(ggplot() + theme_void() + ggtitle("Lusaka burial registrations") + theme(plot.title = element_text(hjust = 0.5, vjust = - 4)),
+                                                       ggplot() + theme_void() + ggtitle("Modelled transmissibility") + theme(plot.title = element_text(hjust = 0.5, vjust = - 4)), rel_widths = c(2,1)),
+                                    cowplot::plot_grid(Res_10_1x1_plot[[1]]$Poisson_Figure_weeks + theme(legend.position = "none"),
+                                                       Res_10_1x1_plot[[1]]$Poisson_Figure_age + theme(legend.position = "none"),
+                                                       Res_10_1x1_plot[[1]]$p_Rt_Reff_a + theme_minimal() + theme(legend.position = "none"), ncol = 3),
+                                    cowplot::plot_grid(ggpubr::get_legend(Res_10_1x1_plot[[1]]$Poisson_Figure_weeks),
+                                                       ggpubr::get_legend(Res_10_1x1_plot[[1]]$p_Rt_Reff_a), rel_widths = c(2,1), ncol = 2),
+                                    ncol = 1, rel_heights = c(0.2,1,0.2,0.2,1,0.2))
+pdf(file = "analysis/figures/39_figure_3.pdf", width = 10)
+Figure_3_plot
+dev.off()
+
+tiff(file = "analysis/figures/39_figure_3.tiff", units = "in", height = 7, width = 10, res = 250)
+Figure_2_plot
+dev.off()
+
+# Full_Prev_Plot <-  cowplot::plot_grid(Prev_plot,
+#                                       PCR_Combined_plots,
+#                                       nrow = 2, rel_heights = c(1.7,1.1))
+
+
+Res_10_plots <- lapply(X =1:length(Res_10), FUN = Diagnostic_Plot_10, fit_Model_list = Res_10, IFRvals = IFR_coefficients, full_drjacoby_fit_data = dfj_mcmc_data,
+                       filter_set = "remove_weeks_4_and_5_and_age_under_5s", Return_likelihoods_only = T)
 # saveRDS(object = Res_10_plots, "../Bonus Files/2022-07-20_L10_Plots_x81_Default.rds")
 # Res_10_plots <- readRDS("../Bonus Files/2022-07-18_L10_Plots_x81_Default.rds")
 # Full_Res <- Full_Res[order(as.numeric(gsub(pattern = "X","",names(Full_Res))))]

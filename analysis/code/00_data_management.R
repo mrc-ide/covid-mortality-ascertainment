@@ -15,10 +15,11 @@ df_Off_Lu <- read.csv(file = "analysis/data/raw/00_official_reports_covid_zambia
 
 ## Filter deaths for Lusaka PROVINCE until November 2020
 df_Off_Lu_Prov <- df_Off_Lu %>%
+  # filter(date>"2021-01-01") %>%
   filter(Province=="Lusaka"
          #date < "2020-11-01"
          ) %>%
-  group_by(date) %>% summarise(deaths = sum(deaths)) %>%
+  group_by(date) %>% summarise(deaths = sum(deaths, na.rm = T)) %>%
   select(date, deaths) %>% na.omit() %>%
   complete(date = seq.Date(min(date), max(date), by = "day"), fill = list(deaths = 0))
 saveRDS(object = df_Off_Lu_Prov, file = "analysis/data/Code-generated-data/00_01_Lusaka_Prov_Deaths_Official.rds")
@@ -27,7 +28,7 @@ saveRDS(object = df_Off_Lu_Prov, file = "analysis/data/Code-generated-data/00_01
 # Include the 6 deaths prior to May 21st 2020 where no district was given.
 df_Off_Lu_Dist <- df_Off_Lu %>%
   filter(District=="Lusaka") %>%# ,         date < "2020-11-01" | Province =="Lusaka" & date < "2020-05-21") %>%
-  group_by(date) %>% summarise(deaths = sum(deaths)) %>%
+  group_by(date) %>% summarise(deaths = sum(deaths, na.rm = T)) %>%
   select(date, deaths) %>% na.omit() %>%
   tidyr::complete(date = seq.Date(min(date), max(date), by = "day"), fill = list(deaths = 0))
 saveRDS(object = df_Off_Lu_Dist, file = "analysis/data/Code-generated-data/00_01_Lusaka_Dist_Deaths_Official.rds")
@@ -481,6 +482,8 @@ Total_burial_registrations <- Total_burial_registrations %>%
          dod !=".") %>%
   mutate(date = as.Date(dod, "%m/%d/%y"),
          Age_gr = cut(as.numeric(age_years), c(seq(0,80,by = 5),Inf), right = F, labels = F),
+         Age_gr_fig_2 = cut(as.numeric(age_years), c(0,seq(5,75,by = 10),Inf), right = F, labels = F),
+         Age_gr_fig_2b = cut(as.numeric(age_years), c(0,5, 15,25,40,50,60,70,Inf), right = F, labels = F),
          Week_st = lubridate::floor_date(date, unit = "week", week_start = 1)) %>%
   select(-sex, -dod, -age_years)
 
@@ -491,7 +494,13 @@ Total_burial_registrations_by_week <- Total_burial_registrations %>%
   group_by(Week_st) %>%
   summarise(Total_deaths = length(date))
 
+Total_burial_registrations_by_week_with_age_groups <- Total_burial_registrations %>%
+  group_by(Week_st, Age_gr) %>%
+  summarise(Total_deaths = n())
+
+saveRDS(object = Total_burial_registrations, file = "analysis/data/Code-generated-data/00_07_Burial_registrations_2017_2021.rds")
 saveRDS(object = Total_burial_registrations_by_week, file = "analysis/data/Code-generated-data/00_07_Burial_registrations_by_week_2017_to_2021.rds")
+saveRDS(object = Total_burial_registrations_by_week_with_age_groups, file = "analysis/data/Code-generated-data/00_07_Burial_registrations_by_week_and_age_2017_to_2021.rds")
 
 
 ## Graphs

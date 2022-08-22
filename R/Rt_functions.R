@@ -165,14 +165,14 @@ rt_plot_immunity <- function(out) {
       geom_hline(yintercept = 1, linetype = "dashed") +
       geom_hline(yintercept = sum_rt$R0_median[1], linetype = "dashed") +
       theme_bw() +
-      scale_fill_manual("", values = c("#48996b", "#3f8da7")) +
+      # scale_fill_manual("", values = c("#48996b", "#3f8da7")) +
       # theme(axis.text = element_text(size=12)) +
       xlab("") +
       ylab("R") +
       scale_x_date(#breaks = "2 weeks",
                    limits = as.Date(c(as.character(min_date),
                                       as.character(date_0+as.numeric(lubridate::wday(date_0))))),
-                   date_labels = "%d %b",
+                   # date_labels = "%d %b",
                    expand = c(0,0)) +
       theme(axis.text.x = ggplot2::element_text(angle = 45, hjust = 1, colour = "black"),
             panel.grid.major = element_blank(),
